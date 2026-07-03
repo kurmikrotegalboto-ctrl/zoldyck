@@ -229,15 +229,5 @@ function AchCell({ value }: { value: number }) {
 
 function formatNumber(n: number): string {
   if (n === 0) return "0";
-  if (Math.abs(n) >= 1_000_000_000) {
-    return (n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + " M";
-  }
-  if (Math.abs(n) >= 1_000_000) {
-    return (n / 1_000_000).toFixed(2).replace(/\.?0+$/, "") + " Jt";
-  }
-  if (Math.abs(n) >= 1_000) {
-    return n.toLocaleString("id-ID");
-  }
-  if (Number.isInteger(n)) return n.toString();
-  return n.toFixed(2);
+  return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
