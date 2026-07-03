@@ -1,0 +1,614 @@
+{
+  "CP TEGALBOTO": {
+    "OSL GROSS POSISI": {
+      "target": 65834609329.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 42622811780.0,
+      "bobot": 10.0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 11839554017.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 8633448014.0,
+      "bobot": 7.5
+    },
+    "KPI STRETCH GOAL": {
+      "target": 8547261445.0,
+      "bobot": 0
+    },
+    "LABA USAHA": {
+      "target": 8257115195.0,
+      "bobot": 10.0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 2104011861.0,
+      "bobot": 5.0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 89612005.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 38112.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 18322.0,
+      "bobot": 2.5
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 8494.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 4406.0,
+      "bobot": 5.0
+    },
+    "DEPOSITO EMAS": {
+      "target": 4328.0,
+      "bobot": 2.5
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 4232.0,
+      "bobot": 5.0
+    },
+    "TE SINERGI HOLDING": {
+      "target": 2497.0,
+      "bobot": 1.5
+    },
+    "NASABAH BARU": {
+      "target": 2255.0,
+      "bobot": 5.0
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 1861.0,
+      "bobot": 5.0
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "NASABAH BARU AGEN": {
+      "target": 62.0,
+      "bobot": 2.5
+    },
+    "LAR NON GADAI": {
+      "target": 12.21,
+      "bobot": 2.0
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 2.5
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 3.0
+    },
+    "NPL NON GADAI": {
+      "target": 1.95,
+      "bobot": 2.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 2.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 3.0
+    }
+  },
+  "UPC BASUKI RAHMAT": {
+    "OSL GROSS POSISI": {
+      "target": 18190765285.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 15466510610.0,
+      "bobot": 12.5
+    },
+    "LABA USAHA": {
+      "target": 3091999153.0,
+      "bobot": 10.0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 1821557621.0,
+      "bobot": 10.0
+    },
+    "KPI STRETCH GOAL": {
+      "target": 1686407864.0,
+      "bobot": 0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 789003568.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 302765834.0,
+      "bobot": 0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 89612005.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 14981.0,
+      "bobot": 5.0
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 4586.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 2207.0,
+      "bobot": 2.5
+    },
+    "NASABAH BARU": {
+      "target": 1493.0,
+      "bobot": 5.0
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 1379.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 1038.0,
+      "bobot": 5.0
+    },
+    "DEPOSITO EMAS": {
+      "target": 519.0,
+      "bobot": 2.5
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 296.0,
+      "bobot": 5.0
+    },
+    "TE SINERGI HOLDING": {
+      "target": 261.0,
+      "bobot": 1.5
+    },
+    "NASABAH BARU AGEN": {
+      "target": 85.0,
+      "bobot": 2.5
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "LAR NON GADAI": {
+      "target": 30.9,
+      "bobot": 2.0
+    },
+    "NPL NON GADAI": {
+      "target": 11.23,
+      "bobot": 2.0
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 2.5
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 3.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 2.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 3.0
+    }
+  },
+  "UPC S PARMAN": {
+    "OSL GROSS POSISI": {
+      "target": 14629108298.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 12177450584.0,
+      "bobot": 12.5
+    },
+    "LABA USAHA": {
+      "target": 2440995247.0,
+      "bobot": 10.0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 1692515292.0,
+      "bobot": 10.0
+    },
+    "KPI STRETCH GOAL": {
+      "target": 1683564317.0,
+      "bobot": 0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 773770278.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 413851412.0,
+      "bobot": 0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 89612005.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 15493.0,
+      "bobot": 5.0
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 4133.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 2033.0,
+      "bobot": 2.5
+    },
+    "NASABAH BARU": {
+      "target": 1416.0,
+      "bobot": 5.0
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 1356.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 988.0,
+      "bobot": 5.0
+    },
+    "DEPOSITO EMAS": {
+      "target": 451.0,
+      "bobot": 2.5
+    },
+    "TE SINERGI HOLDING": {
+      "target": 267.0,
+      "bobot": 1.5
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 252.0,
+      "bobot": 5.0
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "NASABAH BARU AGEN": {
+      "target": 75.0,
+      "bobot": 2.5
+    },
+    "LAR NON GADAI": {
+      "target": 61.93,
+      "bobot": 2.0
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 2.5
+    },
+    "NPL NON GADAI": {
+      "target": 10.61,
+      "bobot": 2.0
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 3.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 2.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 3.0
+    }
+  },
+  "UPC KALISAT": {
+    "OSL GROSS POSISI": {
+      "target": 35200641591.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 25020277303.0,
+      "bobot": 10.0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 6338790652.0,
+      "bobot": 5.0
+    },
+    "LABA USAHA": {
+      "target": 5122308848.0,
+      "bobot": 10.0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 2269886397.0,
+      "bobot": 7.5
+    },
+    "KPI STRETCH GOAL": {
+      "target": 2154951957.0,
+      "bobot": 0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 773770278.0,
+      "bobot": 5.0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 89612005.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 10259.0,
+      "bobot": 5.0
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 6428.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 2685.0,
+      "bobot": 2.5
+    },
+    "NASABAH BARU": {
+      "target": 1889.0,
+      "bobot": 5.0
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 1521.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 1067.0,
+      "bobot": 5.0
+    },
+    "DEPOSITO EMAS": {
+      "target": 563.0,
+      "bobot": 2.5
+    },
+    "TE SINERGI HOLDING": {
+      "target": 321.0,
+      "bobot": 1.5
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 284.0,
+      "bobot": 5.0
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "NASABAH BARU AGEN": {
+      "target": 41.0,
+      "bobot": 2.5
+    },
+    "LAR NON GADAI": {
+      "target": 14.83,
+      "bobot": 2.0
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 2.5
+    },
+    "NPL NON GADAI": {
+      "target": 3.63,
+      "bobot": 2.0
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 3.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 2.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 3.0
+    }
+  },
+  "UPC MAYANG": {
+    "OSL GROSS POSISI": {
+      "target": 10848655273.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 8226946715.0,
+      "bobot": 12.5
+    },
+    "KPI STRETCH GOAL": {
+      "target": 2245564130.0,
+      "bobot": 0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 2123756680.0,
+      "bobot": 10.0
+    },
+    "LABA USAHA": {
+      "target": 1660074089.0,
+      "bobot": 10.0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 773770278.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 348962534.0,
+      "bobot": 0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 89612005.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 8126.0,
+      "bobot": 5.0
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 3048.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 1505.0,
+      "bobot": 2.5
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 129.0,
+      "bobot": 5.0
+    },
+    "NASABAH BARU": {
+      "target": 1197.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 902.0,
+      "bobot": 5.0
+    },
+    "DEPOSITO EMAS": {
+      "target": 321.0,
+      "bobot": 2.5
+    },
+    "TE SINERGI HOLDING": {
+      "target": 216.0,
+      "bobot": 1.5
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 136.0,
+      "bobot": 5.0
+    },
+    "NASABAH BARU AGEN": {
+      "target": 108.0,
+      "bobot": 2.5
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "LAR NON GADAI": {
+      "target": 23.86,
+      "bobot": 2.0
+    },
+    "NPL NON GADAI": {
+      "target": 14.97,
+      "bobot": 2.0
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 2.5
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 3.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 2.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 3.0
+    }
+  },
+  "BRI UNIT SUMBERJATI": {
+    "OSL GROSS POSISI": {
+      "target": 2475837838.0,
+      "bobot": 5.0
+    },
+    "OSL AKTIF RATA-RATA GADAI": {
+      "target": 2051101918.0,
+      "bobot": 12.5
+    },
+    "KPI STRETCH GOAL": {
+      "target": 1352998713.0,
+      "bobot": 0
+    },
+    "OSL AKTIF RATA-RATA EMAS": {
+      "target": 1211584145.0,
+      "bobot": 10.0
+    },
+    "OSL LAYANAN TRING!": {
+      "target": 773770278.0,
+      "bobot": 5.0
+    },
+    "LABA USAHA": {
+      "target": 456197076.0,
+      "bobot": 10.0
+    },
+    "OSL SINERGI HOLDING": {
+      "target": 382829717.0,
+      "bobot": 1.5
+    },
+    "FREKUENSI TRANSAKSI TRING!": {
+      "target": 7731.0,
+      "bobot": 5.0
+    },
+    "GRAMASI PRODUK GALERI 24": {
+      "target": 1166.0,
+      "bobot": 5.0
+    },
+    "NASABAH PEMBIAYAAN TAHUNAN": {
+      "target": 801.0,
+      "bobot": 5.0
+    },
+    "NASABAH BARU": {
+      "target": 740.0,
+      "bobot": 5.0
+    },
+    "NASABAH TRING!": {
+      "target": 578.0,
+      "bobot": 5.0
+    },
+    "TABUNGAN EMAS": {
+      "target": 400.0,
+      "bobot": 2.5
+    },
+    "TE SINERGI HOLDING": {
+      "target": 150.0,
+      "bobot": 1.5
+    },
+    "DEPOSITO EMAS": {
+      "target": 130.0,
+      "bobot": 2.5
+    },
+    "CASHLESS DISBURSEMENT": {
+      "target": 78.76,
+      "bobot": 2.0
+    },
+    "NASABAH TABUNGAN EMAS": {
+      "target": 48.0,
+      "bobot": 5.0
+    },
+    "NASABAH BARU AGEN": {
+      "target": 30.0,
+      "bobot": 2.5
+    },
+    "LAR EMAS": {
+      "target": 11.04,
+      "bobot": 3.5
+    },
+    "LAR GADAI": {
+      "target": 2.75,
+      "bobot": 4.0
+    },
+    "NPL EMAS": {
+      "target": 0.87,
+      "bobot": 3.5
+    },
+    "NPL GADAI": {
+      "target": 0.31,
+      "bobot": 4.0
+    },
+    "LAR NON GADAI": {
+      "target": 0,
+      "bobot": 0
+    },
+    "NPL NON GADAI": {
+      "target": 0,
+      "bobot": 0
+    },
+    "OSL AKTIF RATA-RATA NON GADAI": {
+      "target": 0,
+      "bobot": 0
+    }
+  }
+}

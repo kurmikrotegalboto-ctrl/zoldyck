@@ -1,18 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { kpiData, type KpiUnit } from "@/lib/kpi-data";
+import type { KpiUnit } from "@/lib/kpi-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 
-export function GapAnalysis() {
+interface GapAnalysisProps {
+  units: KpiUnit[];
+}
+
+export function GapAnalysis({ units }: GapAnalysisProps) {
   const [selectedUnit, setSelectedUnit] = useState<string>("all");
 
-  const units = selectedUnit === "all"
-    ? kpiData
-    : kpiData.filter(u => u.code === selectedUnit);
+  const filteredUnits = selectedUnit === "all"
+    ? units
+    : units.filter(u => u.code === selectedUnit);
 
   return (
     <div className="space-y-4">
@@ -23,7 +27,7 @@ export function GapAnalysis() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Unit</SelectItem>
-            {kpiData.map(u => (
+            {units.map(u => (
               <SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>
             ))}
           </SelectContent>
@@ -33,7 +37,7 @@ export function GapAnalysis() {
         </p>
       </div>
 
-      {units.map(unit => {
+      {filteredUnits.map(unit => {
         const belowTarget = unit.components
           .filter(c => c.bobot > 0 && c.ach > 0 && c.ach < 1.0)
           .sort((a, b) => a.ach - b.ach);

@@ -1,21 +1,19 @@
 "use client";
 
-import { kpiData, getAchBadge, type KpiUnit } from "@/lib/kpi-data";
+import type { KpiUnit } from "@/lib/kpi-types";
+import { getUnitBadge } from "@/lib/kpi-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Minus, BarChart3, Trophy, AlertTriangle } from "lucide-react";
 
-function getUnitBadge(totalKpi: number): { bg: string; text: string; label: string } {
-  if (totalKpi >= 85) return { bg: "bg-emerald-100", text: "text-emerald-800", label: "Baik" };
-  if (totalKpi >= 70) return { bg: "bg-amber-100", text: "text-amber-800", label: "Cukup" };
-  if (totalKpi >= 55) return { bg: "bg-orange-100", text: "text-orange-800", label: "Perlu Perhatian" };
-  return { bg: "bg-red-100", text: "text-red-800", label: "Kritis" };
+interface SummaryCardsProps {
+  units: KpiUnit[];
 }
 
-export function SummaryCards() {
-  const sorted = [...kpiData].sort((a, b) => b.total_kpi - a.total_kpi);
-  const avgKpi = kpiData.reduce((s, u) => s + u.total_kpi, 0) / kpiData.length;
+export function SummaryCards({ units }: SummaryCardsProps) {
+  const sorted = [...units].sort((a, b) => b.total_kpi - a.total_kpi);
+  const avgKpi = units.reduce((s, u) => s + u.total_kpi, 0) / units.length;
 
   return (
     <div className="space-y-6">
@@ -27,7 +25,7 @@ export function SummaryCards() {
             <p className="text-2xl font-bold mt-1">
               {avgKpi.toFixed(1)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">dari {kpiData.length} unit</p>
+            <p className="text-xs text-muted-foreground mt-1">dari {units.length} unit</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">
@@ -83,8 +81,8 @@ export function SummaryCards() {
                   <span className="text-3xl font-black">{unit.total_kpi}</span>
                   <span className="text-sm text-muted-foreground mb-1">/ {totalBobot} poin</span>
                 </div>
-                <Progress 
-                  value={(unit.total_kpi / totalBobot) * 100} 
+                <Progress
+                  value={(unit.total_kpi / totalBobot) * 100}
                   className="h-2.5"
                 />
                 <div className="flex flex-wrap gap-1.5 text-xs">

@@ -1,23 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { kpiData, generateRecommendations, type Recommendation } from "@/lib/kpi-data";
+import type { KpiUnit } from "@/lib/kpi-types";
+import { generateRecommendations, type Recommendation } from "@/lib/kpi-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, Lightbulb, Target, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function Recommendations() {
+interface RecommendationsProps {
+  units: KpiUnit[];
+}
+
+export function Recommendations({ units }: RecommendationsProps) {
   const [filterUnit, setFilterUnit] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const recs = generateRecommendations();
+  const recs = generateRecommendations(units);
 
   const filtered = recs.filter(r => {
     if (filterUnit !== "all") {
-      const unit = kpiData.find(u => u.name === r.unit);
+      const unit = units.find(u => u.name === r.unit);
       if (!unit || unit.code !== filterUnit) return false;
     }
     if (filterSeverity !== "all" && r.severity !== filterSeverity) return false;
@@ -25,7 +30,7 @@ export function Recommendations() {
   });
 
   // Critical components across all units (common issues)
-  const criticalSummary = getCriticalSummary();
+  const criticalSummary = getCriticalSummary(units, recs);
 
   const toggleExpand = (key: string) => {
     const next = new Set(expandedItems);
@@ -44,7 +49,7 @@ export function Recommendations() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Unit</SelectItem>
-            {kpiData.map(u => (
+            {units.map(u => (
               <SelectItem key={u.code} value={u.code}>{u.name}</SelectItem>
             ))}
           </SelectContent>
@@ -86,7 +91,7 @@ export function Recommendations() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold">{item.component}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Terdampak di {item.affectedUnits} dari {kpiData.length} unit &mdash; Rata-rata ACH: {(item.avgAch * 100).toFixed(1)}%
+                      Terdampak di {item.affectedUnits} dari {units.length} unit &mdash; Rata-rata ACH: {(item.avgAch * 100).toFixed(1)}%
                     </p>
                     <p className="text-[11px] mt-1.5 text-gray-700">{item.suggestion}</p>
                   </div>
@@ -99,7 +104,7 @@ export function Recommendations() {
 
       {/* Detailed Recommendations */}
       <div className="space-y-3">
-        {filtered.map((r, idx) => {
+        {filtered.map((r) => {
           const key = `${r.unit}-${r.component}`;
           const isExpanded = expandedItems.has(key);
 
@@ -168,11 +173,10 @@ export function Recommendations() {
   );
 }
 
-function getCriticalSummary() {
-  // Find components that are below target in multiple units
+function getCriticalSummary(units: KpiUnit[], recs: Recommendation[]) {
   const componentIssues: Record<string, { component: string; achs: number[]; suggestions: string[] }> = {};
 
-  kpiData.forEach(unit => {
+  units.forEach(unit => {
     unit.components.forEach(c => {
       if (c.bobot > 0 && c.ach > 0 && c.ach < 1.0) {
         if (!componentIssues[c.kpi_name]) {
@@ -183,7 +187,6 @@ function getCriticalSummary() {
     });
   });
 
-  const recs = generateRecommendations();
   const suggestionMap: Record<string, string> = {};
   recs.forEach(r => {
     if (!suggestionMap[r.component]) suggestionMap[r.component] = r.suggestion;

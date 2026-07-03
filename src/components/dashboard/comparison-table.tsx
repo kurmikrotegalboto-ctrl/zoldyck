@@ -1,17 +1,18 @@
 "use client";
 
-import { kpiData, getAchBadge, type KpiUnit } from "@/lib/kpi-data";
+import type { KpiUnit } from "@/lib/kpi-types";
+import { getAchBadge, getAllKpiNames } from "@/lib/kpi-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { BarChart3 } from "lucide-react";
 
-function totalBobotFor(unit: KpiUnit) {
-  return unit.components.reduce((s, c) => s + c.bobot, 0);
+interface ComparisonTableProps {
+  units: KpiUnit[];
 }
 
-export function ComparisonTable() {
-  const kpiNames = getAllActiveKpiNames();
+export function ComparisonTable({ units }: ComparisonTableProps) {
+  const kpiNames = getAllActiveKpiNames(units);
 
   return (
     <div className="space-y-4">
@@ -33,7 +34,7 @@ export function ComparisonTable() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-semibold sticky left-0 bg-muted/50 min-w-[200px]">Komponen KPI</th>
                     <th className="text-center p-3 font-semibold min-w-[50px]">Bobot</th>
-                    {kpiData.map(u => (
+                    {units.map(u => (
                       <th key={u.code} className="text-center p-3 font-semibold min-w-[120px]">
                         <div className="truncate">{u.name}</div>
                       </th>
@@ -42,18 +43,17 @@ export function ComparisonTable() {
                 </thead>
                 <tbody>
                   {kpiNames.map((name, idx) => {
-                    // Get bobot from first unit that has this component
-                    const bobot = kpiData
+                    const bobot = units
                       .map(u => u.components.find(c => c.kpi_name === name))
                       .find(c => c && c.bobot > 0)?.bobot ?? 0;
-                    
+
                     return (
                       <tr key={name} className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                         <td className="p-3 font-medium sticky left-0 bg-inherit">
                           <div className="max-w-[200px] truncate">{name}</div>
                         </td>
                         <td className="text-center p-3 text-muted-foreground">{bobot}</td>
-                        {kpiData.map(u => {
+                        {units.map(u => {
                           const comp = u.components.find(c => c.kpi_name === name);
                           if (!comp || comp.bobot === 0) {
                             return (
@@ -79,7 +79,7 @@ export function ComparisonTable() {
                   <tr className="border-t-2 border-gray-300 bg-gray-100 font-bold">
                     <td className="p-3 sticky left-0 bg-gray-100">TOTAL KPI</td>
                     <td className="text-center p-3">-</td>
-                    {kpiData.map(u => (
+                    {units.map(u => (
                       <td key={u.code} className="text-center p-3">
                         <span className={`text-sm font-black ${
                           u.total_kpi >= 85 ? "text-emerald-700" :
@@ -102,9 +102,9 @@ export function ComparisonTable() {
   );
 }
 
-function getAllActiveKpiNames(): string[] {
+function getAllActiveKpiNames(units: KpiUnit[]): string[] {
   const nameSet = new Set<string>();
-  kpiData.forEach(unit => {
+  units.forEach(unit => {
     unit.components.forEach(c => {
       if (c.bobot > 0) nameSet.add(c.kpi_name);
     });

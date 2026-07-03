@@ -1,0 +1,1544 @@
+     1→[
+     2→  {
+     3→    "code": "14200",
+     4→    "name": "CP TEGALBOTO",
+     5→    "total_kpi": 83.22,
+     6→    "components": [
+     7→      {
+     8→        "unit_code": "14200",
+     9→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+    10→        "bobot": 10.0,
+    11→        "satuan": "Rp",
+    12→        "target": 105565098908.0,
+    13→        "realisasi": 121029947871.0,
+    14→        "ach": 1.1465,
+    15→        "kpi_score": 11.46
+    16→      },
+    17→      {
+    18→        "unit_code": "14200",
+    19→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+    20→        "bobot": 5.0,
+    21→        "satuan": "Rp",
+    22→        "target": 19243924449.0,
+    23→        "realisasi": 18081050515.0,
+    24→        "ach": 0.9396,
+    25→        "kpi_score": 4.7
+    26→      },
+    27→      {
+    28→        "unit_code": "14200",
+    29→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+    30→        "bobot": 7.5,
+    31→        "satuan": "Rp",
+    32→        "target": 17752748148.0,
+    33→        "realisasi": 19414533762.0,
+    34→        "ach": 1.0936,
+    35→        "kpi_score": 8.2
+    36→      },
+    37→      {
+    38→        "unit_code": "14200",
+    39→        "kpi_name": "OSL GROSS POSISI",
+    40→        "bobot": 5.0,
+    41→        "satuan": "Rp",
+    42→        "target": 147179617614.0,
+    43→        "realisasi": 166640441557.0,
+    44→        "ach": 1.1,
+    45→        "kpi_score": 5.5
+    46→      },
+    47→      {
+    48→        "unit_code": "14200",
+    49→        "kpi_name": "LABA USAHA",
+    50→        "bobot": 10.0,
+    51→        "satuan": "Rp",
+    52→        "target": 21028689608.0,
+    53→        "realisasi": 9123839048.9315,
+    54→        "ach": 0.4339,
+    55→        "kpi_score": 4.34
+    56→      },
+    57→      {
+    58→        "unit_code": "14200",
+    59→        "kpi_name": "NASABAH BARU",
+    60→        "bobot": 5.0,
+    61→        "satuan": "Jumlah",
+    62→        "target": 8990.290409,
+    63→        "realisasi": 3962.0,
+    64→        "ach": 0.4407,
+    65→        "kpi_score": 2.2
+    66→      },
+    67→      {
+    68→        "unit_code": "14200",
+    69→        "kpi_name": "NASABAH BARU AGEN",
+    70→        "bobot": 2.5,
+    71→        "satuan": "Jumlah",
+    72→        "target": 400.0,
+    73→        "realisasi": 340.0,
+    74→        "ach": 0.85,
+    75→        "kpi_score": 2.13
+    76→      },
+    77→      {
+    78→        "unit_code": "14200",
+    79→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+    80→        "bobot": 5.0,
+    81→        "satuan": "Jumlah",
+    82→        "target": 27491.0,
+    83→        "realisasi": 18104.0,
+    84→        "ach": 0.6585,
+    85→        "kpi_score": 3.29
+    86→      },
+    87→      {
+    88→        "unit_code": "14200",
+    89→        "kpi_name": "NASABAH TABUNGAN EMAS",
+    90→        "bobot": 5.0,
+    91→        "satuan": "Gramasi",
+    92→        "target": 2877.0,
+    93→        "realisasi": 2709.0,
+    94→        "ach": 0.9416,
+    95→        "kpi_score": 4.71
+    96→      },
+    97→      {
+    98→        "unit_code": "14200",
+    99→        "kpi_name": "NPL GADAI",
+   100→        "bobot": 3.0,
+   101→        "satuan": "%",
+   102→        "target": 0.31,
+   103→        "realisasi": 0.07,
+   104→        "ach": 1.1,
+   105→        "kpi_score": 3.3
+   106→      },
+   107→      {
+   108→        "unit_code": "14200",
+   109→        "kpi_name": "NPL NON GADAI",
+   110→        "bobot": 2.0,
+   111→        "satuan": "%",
+   112→        "target": 3.06,
+   113→        "realisasi": 2.17,
+   114→        "ach": 1.1,
+   115→        "kpi_score": 2.2
+   116→      },
+   117→      {
+   118→        "unit_code": "14200",
+   119→        "kpi_name": "NPL EMAS",
+   120→        "bobot": 2.5,
+   121→        "satuan": "%",
+   122→        "target": 0.87,
+   123→        "realisasi": 0.12,
+   124→        "ach": 1.1,
+   125→        "kpi_score": 2.75
+   126→      },
+   127→      {
+   128→        "unit_code": "14200",
+   129→        "kpi_name": "LAR GADAI",
+   130→        "bobot": 3.0,
+   131→        "satuan": "%",
+   132→        "target": 5.6,
+   133→        "realisasi": 2.95,
+   134→        "ach": 1.1,
+   135→        "kpi_score": 3.3
+   136→      },
+   137→      {
+   138→        "unit_code": "14200",
+   139→        "kpi_name": "LAR NON GADAI",
+   140→        "bobot": 2.0,
+   141→        "satuan": "%",
+   142→        "target": 14.59,
+   143→        "realisasi": 12.57,
+   144→        "ach": 1.1,
+   145→        "kpi_score": 2.2
+   146→      },
+   147→      {
+   148→        "unit_code": "14200",
+   149→        "kpi_name": "LAR EMAS",
+   150→        "bobot": 2.5,
+   151→        "satuan": "%",
+   152→        "target": 11.04,
+   153→        "realisasi": 7.9,
+   154→        "ach": 1.1,
+   155→        "kpi_score": 2.75
+   156→      },
+   157→      {
+   158→        "unit_code": "14200",
+   159→        "kpi_name": "DEPOSITO EMAS",
+   160→        "bobot": 2.5,
+   161→        "satuan": "Gramasi",
+   162→        "target": 6312.0,
+   163→        "realisasi": 3509.0,
+   164→        "ach": 0.5559,
+   165→        "kpi_score": 1.39
+   166→      },
+   167→      {
+   168→        "unit_code": "14200",
+   169→        "kpi_name": "TABUNGAN EMAS",
+   170→        "bobot": 2.5,
+   171→        "satuan": "Gramasi",
+   172→        "target": 27153.0,
+   173→        "realisasi": 24529.6727,
+   174→        "ach": 0.9034,
+   175→        "kpi_score": 2.26
+   176→      },
+   177→      {
+   178→        "unit_code": "14200",
+   179→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+   180→        "bobot": 5.0,
+   181→        "satuan": "Gramasi",
+   182→        "target": 10944.0,
+   183→        "realisasi": 5641.0,
+   184→        "ach": 0.5154,
+   185→        "kpi_score": 2.58
+   186→      },
+   187→      {
+   188→        "unit_code": "14200",
+   189→        "kpi_name": "NASABAH TRING!",
+   190→        "bobot": 5.0,
+   191→        "satuan": "Jumlah",
+   192→        "target": 8978.0,
+   193→        "realisasi": 6805.0,
+   194→        "ach": 0.758,
+   195→        "kpi_score": 3.79
+   196→      },
+   197→      {
+   198→        "unit_code": "14200",
+   199→        "kpi_name": "OSL LAYANAN TRING!",
+   200→        "bobot": 5.0,
+   201→        "satuan": "Rp",
+   202→        "target": 5988096541.0,
+   203→        "realisasi": 4790037095.0,
+   204→        "ach": 0.7999,
+   205→        "kpi_score": 4.0
+   206→      },
+   207→      {
+   208→        "unit_code": "14200",
+   209→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+   210→        "bobot": 5.0,
+   211→        "satuan": "Jumlah",
+   212→        "target": 94702.0,
+   213→        "realisasi": 32708.0,
+   214→        "ach": 0.3454,
+   215→        "kpi_score": 1.73
+   216→      },
+   217→      {
+   218→        "unit_code": "14200",
+   219→        "kpi_name": "CASHLESS DISBURSEMENT",
+   220→        "bobot": 2.0,
+   221→        "satuan": "%",
+   222→        "target": 78.76,
+   223→        "realisasi": 77.61,
+   224→        "ach": 0.9854,
+   225→        "kpi_score": 1.97
+   226→      },
+   227→      {
+   228→        "unit_code": "14200",
+   229→        "kpi_name": "OSL SINERGI HOLDING",
+   230→        "bobot": 1.5,
+   231→        "satuan": "Rp",
+   232→        "target": 830889743.0,
+   233→        "realisasi": 1413702664.0,
+   234→        "ach": 1.1,
+   235→        "kpi_score": 1.65
+   236→      },
+   237→      {
+   238→        "unit_code": "14200",
+   239→        "kpi_name": "TE SINERGI HOLDING",
+   240→        "bobot": 1.5,
+   241→        "satuan": "Gramasi",
+   242→        "target": 3711.0,
+   243→        "realisasi": 2033.0764,
+   244→        "ach": 0.5479,
+   245→        "kpi_score": 0.82
+   246→      },
+   247→      {
+   248→        "unit_code": "14200",
+   249→        "kpi_name": "KPI STRETCH GOAL",
+   250→        "bobot": 0,
+   251→        "satuan": "Rp",
+   252→        "target": 17670748427.0,
+   253→        "realisasi": 16543618907.0,
+   254→        "ach": 0.9362,
+   255→        "kpi_score": 0
+   256→      }
+   257→    ]
+   258→  },
+   259→  {
+   260→    "code": "14201",
+   261→    "name": "UPC BASUKI RAHMAT",
+   262→    "total_kpi": 79.49,
+   263→    "components": [
+   264→      {
+   265→        "unit_code": "14201",
+   266→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+   267→        "bobot": 12.5,
+   268→        "satuan": "Rp",
+   269→        "target": 15466510609.573,
+   270→        "realisasi": 16751975717.0,
+   271→        "ach": 1.0831,
+   272→        "kpi_score": 13.54
+   273→      },
+   274→      {
+   275→        "unit_code": "14201",
+   276→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+   277→        "bobot": 0,
+   278→        "satuan": "Jumlah",
+   279→        "target": 0,
+   280→        "realisasi": 456047961.0,
+   281→        "ach": 0,
+   282→        "kpi_score": 0
+   283→      },
+   284→      {
+   285→        "unit_code": "14201",
+   286→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+   287→        "bobot": 10.0,
+   288→        "satuan": "Rp",
+   289→        "target": 1821557620.68,
+   290→        "realisasi": 2206884210.0,
+   291→        "ach": 1.2115,
+   292→        "kpi_score": 12.12
+   293→      },
+   294→      {
+   295→        "unit_code": "14201",
+   296→        "kpi_name": "OSL GROSS POSISI",
+   297→        "bobot": 5.0,
+   298→        "satuan": "Rp",
+   299→        "target": 18190765284.934,
+   300→        "realisasi": 20033334409.0,
+   301→        "ach": 1.1,
+   302→        "kpi_score": 5.5
+   303→      },
+   304→      {
+   305→        "unit_code": "14201",
+   306→        "kpi_name": "LABA USAHA",
+   307→        "bobot": 10.0,
+   308→        "satuan": "Rp",
+   309→        "target": 3091999153.0,
+   310→        "realisasi": 1311657664.7675,
+   311→        "ach": 0.4242,
+   312→        "kpi_score": 4.24
+   313→      },
+   314→      {
+   315→        "unit_code": "14201",
+   316→        "kpi_name": "NASABAH BARU",
+   317→        "bobot": 5.0,
+   318→        "satuan": "Jumlah",
+   319→        "target": 1493.2389,
+   320→        "realisasi": 328.0,
+   321→        "ach": 0.2197,
+   322→        "kpi_score": 1.1
+   323→      },
+   324→      {
+   325→        "unit_code": "14201",
+   326→        "kpi_name": "NASABAH BARU AGEN",
+   327→        "bobot": 2.5,
+   328→        "satuan": "Jumlah",
+   329→        "target": 84.9055,
+   330→        "realisasi": 88.0,
+   331→        "ach": 1.0364,
+   332→        "kpi_score": 2.59
+   333→      },
+   334→      {
+   335→        "unit_code": "14201",
+   336→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+   337→        "bobot": 5.0,
+   338→        "satuan": "Jumlah",
+   339→        "target": 4585.81,
+   340→        "realisasi": 2622.0,
+   341→        "ach": 0.5718,
+   342→        "kpi_score": 2.86
+   343→      },
+   344→      {
+   345→        "unit_code": "14201",
+   346→        "kpi_name": "NASABAH TABUNGAN EMAS",
+   347→        "bobot": 5.0,
+   348→        "satuan": "Gramasi",
+   349→        "target": 296.084,
+   350→        "realisasi": 283.0,
+   351→        "ach": 0.9558,
+   352→        "kpi_score": 4.78
+   353→      },
+   354→      {
+   355→        "unit_code": "14201",
+   356→        "kpi_name": "NPL GADAI",
+   357→        "bobot": 3.0,
+   358→        "satuan": "%",
+   359→        "target": 0.306,
+   360→        "realisasi": 0,
+   361→        "ach": 1.1,
+   362→        "kpi_score": 3.3
+   363→      },
+   364→      {
+   365→        "unit_code": "14201",
+   366→        "kpi_name": "NPL NON GADAI",
+   367→        "bobot": 2.0,
+   368→        "satuan": "%",
+   369→        "target": 11.2347,
+   370→        "realisasi": 3.23,
+   371→        "ach": 1.1,
+   372→        "kpi_score": 2.2
+   373→      },
+   374→      {
+   375→        "unit_code": "14201",
+   376→        "kpi_name": "NPL EMAS",
+   377→        "bobot": 2.5,
+   378→        "satuan": "%",
+   379→        "target": 0.8748,
+   380→        "realisasi": 0.2,
+   381→        "ach": 1.1,
+   382→        "kpi_score": 2.75
+   383→      },
+   384→      {
+   385→        "unit_code": "14201",
+   386→        "kpi_name": "LAR GADAI",
+   387→        "bobot": 3.0,
+   388→        "satuan": "%",
+   389→        "target": 2.7542,
+   390→        "realisasi": 4.62,
+   391→        "ach": 0.5961,
+   392→        "kpi_score": 1.79
+   393→      },
+   394→      {
+   395→        "unit_code": "14201",
+   396→        "kpi_name": "LAR NON GADAI",
+   397→        "bobot": 2.0,
+   398→        "satuan": "%",
+   399→        "target": 30.9032,
+   400→        "realisasi": 7.91,
+   401→        "ach": 1.1,
+   402→        "kpi_score": 2.2
+   403→      },
+   404→      {
+   405→        "unit_code": "14201",
+   406→        "kpi_name": "LAR EMAS",
+   407→        "bobot": 2.5,
+   408→        "satuan": "%",
+   409→        "target": 11.0445,
+   410→        "realisasi": 5.43,
+   411→        "ach": 1.1,
+   412→        "kpi_score": 2.75
+   413→      },
+   414→      {
+   415→        "unit_code": "14201",
+   416→        "kpi_name": "DEPOSITO EMAS",
+   417→        "bobot": 2.5,
+   418→        "satuan": "Gramasi",
+   419→        "target": 518.8002,
+   420→        "realisasi": 243.0,
+   421→        "ach": 0.4684,
+   422→        "kpi_score": 1.17
+   423→      },
+   424→      {
+   425→        "unit_code": "14201",
+   426→        "kpi_name": "TABUNGAN EMAS",
+   427→        "bobot": 2.5,
+   428→        "satuan": "Gramasi",
+   429→        "target": 2206.9539,
+   430→        "realisasi": 1819.0658,
+   431→        "ach": 0.8242,
+   432→        "kpi_score": 2.06
+   433→      },
+   434→      {
+   435→        "unit_code": "14201",
+   436→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+   437→        "bobot": 5.0,
+   438→        "satuan": "Gramasi",
+   439→        "target": 1379.2321,
+   440→        "realisasi": 719.5,
+   441→        "ach": 0.5217,
+   442→        "kpi_score": 2.61
+   443→      },
+   444→      {
+   445→        "unit_code": "14201",
+   446→        "kpi_name": "NASABAH TRING!",
+   447→        "bobot": 5.0,
+   448→        "satuan": "Jumlah",
+   449→        "target": 1037.5896,
+   450→        "realisasi": 855.0,
+   451→        "ach": 0.824,
+   452→        "kpi_score": 4.12
+   453→      },
+   454→      {
+   455→        "unit_code": "14201",
+   456→        "kpi_name": "OSL LAYANAN TRING!",
+   457→        "bobot": 5.0,
+   458→        "satuan": "Rp",
+   459→        "target": 789003568.3088,
+   460→        "realisasi": 583559599.0,
+   461→        "ach": 0.7396,
+   462→        "kpi_score": 3.7
+   463→      },
+   464→      {
+   465→        "unit_code": "14201",
+   466→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+   467→        "bobot": 5.0,
+   468→        "satuan": "Jumlah",
+   469→        "target": 14980.8368,
+   470→        "realisasi": 4632.0,
+   471→        "ach": 0.3092,
+   472→        "kpi_score": 1.55
+   473→      },
+   474→      {
+   475→        "unit_code": "14201",
+   476→        "kpi_name": "CASHLESS DISBURSEMENT",
+   477→        "bobot": 2.0,
+   478→        "satuan": "%",
+   479→        "target": 78.76,
+   480→        "realisasi": 77.47,
+   481→        "ach": 0.9836,
+   482→        "kpi_score": 1.97
+   483→      },
+   484→      {
+   485→        "unit_code": "14201",
+   486→        "kpi_name": "OSL SINERGI HOLDING",
+   487→        "bobot": 1.5,
+   488→        "satuan": "Rp",
+   489→        "target": 89612005.1021,
+   490→        "realisasi": 10389442.0,
+   491→        "ach": 0.1159,
+   492→        "kpi_score": 0.17
+   493→      },
+   494→      {
+   495→        "unit_code": "14201",
+   496→        "kpi_name": "TE SINERGI HOLDING",
+   497→        "bobot": 1.5,
+   498→        "satuan": "Gramasi",
+   499→        "target": 260.7097,
+   500→        "realisasi": 72.9733,
+   501→        "ach": 0.2799,
+   502→        "kpi_score": 0.42
+   503→      },
+   504→      {
+   505→        "unit_code": "14201",
+   506→        "kpi_name": "KPI STRETCH GOAL",
+   507→        "bobot": 0,
+   508→        "satuan": "Rp",
+   509→        "target": 1686407864.1068,
+   510→        "realisasi": 1306970862.0,
+   511→        "ach": 0.775,
+   512→        "kpi_score": 0
+   513→      }
+   514→    ]
+   515→  },
+   516→  {
+   517→    "code": "14202",
+   518→    "name": "UPC S PARMAN",
+   519→    "total_kpi": 78.95,
+   520→    "components": [
+   521→      {
+   522→        "unit_code": "14202",
+   523→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+   524→        "bobot": 12.5,
+   525→        "satuan": "Rp",
+   526→        "target": 12177450584.237,
+   527→        "realisasi": 13699212717.0,
+   528→        "ach": 1.125,
+   529→        "kpi_score": 14.06
+   530→      },
+   531→      {
+   532→        "unit_code": "14202",
+   533→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+   534→        "bobot": 0,
+   535→        "satuan": "Jumlah",
+   536→        "target": 0,
+   537→        "realisasi": 636802283.0,
+   538→        "ach": 0,
+   539→        "kpi_score": 0
+   540→      },
+   541→      {
+   542→        "unit_code": "14202",
+   543→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+   544→        "bobot": 10.0,
+   545→        "satuan": "Rp",
+   546→        "target": 1692515291.9877,
+   547→        "realisasi": 1675912318.0,
+   548→        "ach": 0.9902,
+   549→        "kpi_score": 9.9
+   550→      },
+   551→      {
+   552→        "unit_code": "14202",
+   553→        "kpi_name": "OSL GROSS POSISI",
+   554→        "bobot": 5.0,
+   555→        "satuan": "Rp",
+   556→        "target": 14629108297.537,
+   557→        "realisasi": 17398094819.0,
+   558→        "ach": 1.1,
+   559→        "kpi_score": 5.5
+   560→      },
+   561→      {
+   562→        "unit_code": "14202",
+   563→        "kpi_name": "LABA USAHA",
+   564→        "bobot": 10.0,
+   565→        "satuan": "Rp",
+   566→        "target": 2440995247.0,
+   567→        "realisasi": 997877898.8635,
+   568→        "ach": 0.4088,
+   569→        "kpi_score": 4.09
+   570→      },
+   571→      {
+   572→        "unit_code": "14202",
+   573→        "kpi_name": "NASABAH BARU",
+   574→        "bobot": 5.0,
+   575→        "satuan": "Jumlah",
+   576→        "target": 1415.9376,
+   577→        "realisasi": 489.0,
+   578→        "ach": 0.3454,
+   579→        "kpi_score": 1.73
+   580→      },
+   581→      {
+   582→        "unit_code": "14202",
+   583→        "kpi_name": "NASABAH BARU AGEN",
+   584→        "bobot": 2.5,
+   585→        "satuan": "Jumlah",
+   586→        "target": 74.5404,
+   587→        "realisasi": 72.0,
+   588→        "ach": 0.9659,
+   589→        "kpi_score": 2.41
+   590→      },
+   591→      {
+   592→        "unit_code": "14202",
+   593→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+   594→        "bobot": 5.0,
+   595→        "satuan": "Jumlah",
+   596→        "target": 4133.4866,
+   597→        "realisasi": 2694.0,
+   598→        "ach": 0.6518,
+   599→        "kpi_score": 3.26
+   600→      },
+   601→      {
+   602→        "unit_code": "14202",
+   603→        "kpi_name": "NASABAH TABUNGAN EMAS",
+   604→        "bobot": 5.0,
+   605→        "satuan": "Gramasi",
+   606→        "target": 251.7762,
+   607→        "realisasi": 247.0,
+   608→        "ach": 0.981,
+   609→        "kpi_score": 4.91
+   610→      },
+   611→      {
+   612→        "unit_code": "14202",
+   613→        "kpi_name": "NPL GADAI",
+   614→        "bobot": 3.0,
+   615→        "satuan": "%",
+   616→        "target": 0.306,
+   617→        "realisasi": 0.06,
+   618→        "ach": 1.1,
+   619→        "kpi_score": 3.3
+   620→      },
+   621→      {
+   622→        "unit_code": "14202",
+   623→        "kpi_name": "NPL NON GADAI",
+   624→        "bobot": 2.0,
+   625→        "satuan": "%",
+   626→        "target": 10.6129,
+   627→        "realisasi": 3.19,
+   628→        "ach": 1.1,
+   629→        "kpi_score": 2.2
+   630→      },
+   631→      {
+   632→        "unit_code": "14202",
+   633→        "kpi_name": "NPL EMAS",
+   634→        "bobot": 2.5,
+   635→        "satuan": "%",
+   636→        "target": 0.8748,
+   637→        "realisasi": 0.13,
+   638→        "ach": 1.1,
+   639→        "kpi_score": 2.75
+   640→      },
+   641→      {
+   642→        "unit_code": "14202",
+   643→        "kpi_name": "LAR GADAI",
+   644→        "bobot": 3.0,
+   645→        "satuan": "%",
+   646→        "target": 2.7542,
+   647→        "realisasi": 2.48,
+   648→        "ach": 1.1,
+   649→        "kpi_score": 3.3
+   650→      },
+   651→      {
+   652→        "unit_code": "14202",
+   653→        "kpi_name": "LAR NON GADAI",
+   654→        "bobot": 2.0,
+   655→        "satuan": "%",
+   656→        "target": 61.9299,
+   657→        "realisasi": 55.39,
+   658→        "ach": 1.1,
+   659→        "kpi_score": 2.2
+   660→      },
+   661→      {
+   662→        "unit_code": "14202",
+   663→        "kpi_name": "LAR EMAS",
+   664→        "bobot": 2.5,
+   665→        "satuan": "%",
+   666→        "target": 11.0445,
+   667→        "realisasi": 8.15,
+   668→        "ach": 1.1,
+   669→        "kpi_score": 2.75
+   670→      },
+   671→      {
+   672→        "unit_code": "14202",
+   673→        "kpi_name": "DEPOSITO EMAS",
+   674→        "bobot": 2.5,
+   675→        "satuan": "Gramasi",
+   676→        "target": 450.7703,
+   677→        "realisasi": 248.0,
+   678→        "ach": 0.5502,
+   679→        "kpi_score": 1.38
+   680→      },
+   681→      {
+   682→        "unit_code": "14202",
+   683→        "kpi_name": "TABUNGAN EMAS",
+   684→        "bobot": 2.5,
+   685→        "satuan": "Gramasi",
+   686→        "target": 2033.1609,
+   687→        "realisasi": 1495.2752,
+   688→        "ach": 0.7354,
+   689→        "kpi_score": 1.84
+   690→      },
+   691→      {
+   692→        "unit_code": "14202",
+   693→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+   694→        "bobot": 5.0,
+   695→        "satuan": "Gramasi",
+   696→        "target": 1355.6356,
+   697→        "realisasi": 444.0,
+   698→        "ach": 0.3275,
+   699→        "kpi_score": 1.64
+   700→      },
+   701→      {
+   702→        "unit_code": "14202",
+   703→        "kpi_name": "NASABAH TRING!",
+   704→        "bobot": 5.0,
+   705→        "satuan": "Jumlah",
+   706→        "target": 988.2563,
+   707→        "realisasi": 739.0,
+   708→        "ach": 0.7478,
+   709→        "kpi_score": 3.74
+   710→      },
+   711→      {
+   712→        "unit_code": "14202",
+   713→        "kpi_name": "OSL LAYANAN TRING!",
+   714→        "bobot": 5.0,
+   715→        "satuan": "Rp",
+   716→        "target": 773770277.9912,
+   717→        "realisasi": 437156077.0,
+   718→        "ach": 0.565,
+   719→        "kpi_score": 2.82
+   720→      },
+   721→      {
+   722→        "unit_code": "14202",
+   723→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+   724→        "bobot": 5.0,
+   725→        "satuan": "Jumlah",
+   726→        "target": 15493.2025,
+   727→        "realisasi": 4122.0,
+   728→        "ach": 0.2661,
+   729→        "kpi_score": 1.33
+   730→      },
+   731→      {
+   732→        "unit_code": "14202",
+   733→        "kpi_name": "CASHLESS DISBURSEMENT",
+   734→        "bobot": 2.0,
+   735→        "satuan": "%",
+   736→        "target": 78.76,
+   737→        "realisasi": 73.82,
+   738→        "ach": 0.9373,
+   739→        "kpi_score": 1.87
+   740→      },
+   741→      {
+   742→        "unit_code": "14202",
+   743→        "kpi_name": "OSL SINERGI HOLDING",
+   744→        "bobot": 1.5,
+   745→        "satuan": "Rp",
+   746→        "target": 89612005.1021,
+   747→        "realisasi": 355162014.0,
+   748→        "ach": 1.1,
+   749→        "kpi_score": 1.65
+   750→      },
+   751→      {
+   752→        "unit_code": "14202",
+   753→        "kpi_name": "TE SINERGI HOLDING",
+   754→        "bobot": 1.5,
+   755→        "satuan": "Gramasi",
+   756→        "target": 266.8377,
+   757→        "realisasi": 56.0838,
+   758→        "ach": 0.2102,
+   759→        "kpi_score": 0.32
+   760→      },
+   761→      {
+   762→        "unit_code": "14202",
+   763→        "kpi_name": "KPI STRETCH GOAL",
+   764→        "bobot": 0,
+   765→        "satuan": "Rp",
+   766→        "target": 1683564316.9804,
+   767→        "realisasi": 1504706843.0,
+   768→        "ach": 0.8938,
+   769→        "kpi_score": 0
+   770→      }
+   771→    ]
+   772→  },
+   773→  {
+   774→    "code": "14204",
+   775→    "name": "UPC KALISAT",
+   776→    "total_kpi": 79.2,
+   777→    "components": [
+   778→      {
+   779→        "unit_code": "14204",
+   780→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+   781→        "bobot": 10.0,
+   782→        "satuan": "Rp",
+   783→        "target": 25020277302.546,
+   784→        "realisasi": 28779846964.0,
+   785→        "ach": 1.1503,
+   786→        "kpi_score": 11.5
+   787→      },
+   788→      {
+   789→        "unit_code": "14204",
+   790→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+   791→        "bobot": 5.0,
+   792→        "satuan": "Rp",
+   793→        "target": 6338790651.8897,
+   794→        "realisasi": 5362020679.0,
+   795→        "ach": 0.8459,
+   796→        "kpi_score": 4.23
+   797→      },
+   798→      {
+   799→        "unit_code": "14204",
+   800→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+   801→        "bobot": 7.5,
+   802→        "satuan": "Rp",
+   803→        "target": 2269886396.6888,
+   804→        "realisasi": 2141105089.0,
+   805→        "ach": 0.9433,
+   806→        "kpi_score": 7.07
+   807→      },
+   808→      {
+   809→        "unit_code": "14204",
+   810→        "kpi_name": "OSL GROSS POSISI",
+   811→        "bobot": 5.0,
+   812→        "satuan": "Rp",
+   813→        "target": 35200641591.432,
+   814→        "realisasi": 38262177493.0,
+   815→        "ach": 1.087,
+   816→        "kpi_score": 5.43
+   817→      },
+   818→      {
+   819→        "unit_code": "14204",
+   820→        "kpi_name": "LABA USAHA",
+   821→        "bobot": 10.0,
+   822→        "satuan": "Rp",
+   823→        "target": 5122308848.0,
+   824→        "realisasi": 2415132035.144,
+   825→        "ach": 0.4715,
+   826→        "kpi_score": 4.71
+   827→      },
+   828→      {
+   829→        "unit_code": "14204",
+   830→        "kpi_name": "NASABAH BARU",
+   831→        "bobot": 5.0,
+   832→        "satuan": "Jumlah",
+   833→        "target": 1888.7414,
+   834→        "realisasi": 543.0,
+   835→        "ach": 0.2875,
+   836→        "kpi_score": 1.44
+   837→      },
+   838→      {
+   839→        "unit_code": "14204",
+   840→        "kpi_name": "NASABAH BARU AGEN",
+   841→        "bobot": 2.5,
+   842→        "satuan": "Jumlah",
+   843→        "target": 40.7987,
+   844→        "realisasi": 51.0,
+   845→        "ach": 1.1,
+   846→        "kpi_score": 2.75
+   847→      },
+   848→      {
+   849→        "unit_code": "14204",
+   850→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+   851→        "bobot": 5.0,
+   852→        "satuan": "Jumlah",
+   853→        "target": 6428.4468,
+   854→        "realisasi": 4399.0,
+   855→        "ach": 0.6843,
+   856→        "kpi_score": 3.42
+   857→      },
+   858→      {
+   859→        "unit_code": "14204",
+   860→        "kpi_name": "NASABAH TABUNGAN EMAS",
+   861→        "bobot": 5.0,
+   862→        "satuan": "Gramasi",
+   863→        "target": 283.8096,
+   864→        "realisasi": 273.0,
+   865→        "ach": 0.9619,
+   866→        "kpi_score": 4.81
+   867→      },
+   868→      {
+   869→        "unit_code": "14204",
+   870→        "kpi_name": "NPL GADAI",
+   871→        "bobot": 3.0,
+   872→        "satuan": "%",
+   873→        "target": 0.306,
+   874→        "realisasi": 0,
+   875→        "ach": 1.1,
+   876→        "kpi_score": 3.3
+   877→      },
+   878→      {
+   879→        "unit_code": "14204",
+   880→        "kpi_name": "NPL NON GADAI",
+   881→        "bobot": 2.0,
+   882→        "satuan": "%",
+   883→        "target": 3.6269,
+   884→        "realisasi": 2.03,
+   885→        "ach": 1.1,
+   886→        "kpi_score": 2.2
+   887→      },
+   888→      {
+   889→        "unit_code": "14204",
+   890→        "kpi_name": "NPL EMAS",
+   891→        "bobot": 2.5,
+   892→        "satuan": "%",
+   893→        "target": 0.8748,
+   894→        "realisasi": 0.73,
+   895→        "ach": 1.1,
+   896→        "kpi_score": 2.75
+   897→      },
+   898→      {
+   899→        "unit_code": "14204",
+   900→        "kpi_name": "LAR GADAI",
+   901→        "bobot": 3.0,
+   902→        "satuan": "%",
+   903→        "target": 2.7542,
+   904→        "realisasi": 2.67,
+   905→        "ach": 1.0315,
+   906→        "kpi_score": 3.09
+   907→      },
+   908→      {
+   909→        "unit_code": "14204",
+   910→        "kpi_name": "LAR NON GADAI",
+   911→        "bobot": 2.0,
+   912→        "satuan": "%",
+   913→        "target": 14.835,
+   914→        "realisasi": 14.23,
+   915→        "ach": 1.0425,
+   916→        "kpi_score": 2.09
+   917→      },
+   918→      {
+   919→        "unit_code": "14204",
+   920→        "kpi_name": "LAR EMAS",
+   921→        "bobot": 2.5,
+   922→        "satuan": "%",
+   923→        "target": 11.0445,
+   924→        "realisasi": 15.52,
+   925→        "ach": 0.7116,
+   926→        "kpi_score": 1.78
+   927→      },
+   928→      {
+   929→        "unit_code": "14204",
+   930→        "kpi_name": "DEPOSITO EMAS",
+   931→        "bobot": 2.5,
+   932→        "satuan": "Gramasi",
+   933→        "target": 562.9729,
+   934→        "realisasi": 102.0,
+   935→        "ach": 0.1812,
+   936→        "kpi_score": 0.45
+   937→      },
+   938→      {
+   939→        "unit_code": "14204",
+   940→        "kpi_name": "TABUNGAN EMAS",
+   941→        "bobot": 2.5,
+   942→        "satuan": "Gramasi",
+   943→        "target": 2685.3995,
+   944→        "realisasi": 1870.5244,
+   945→        "ach": 0.6966,
+   946→        "kpi_score": 1.74
+   947→      },
+   948→      {
+   949→        "unit_code": "14204",
+   950→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+   951→        "bobot": 5.0,
+   952→        "satuan": "Gramasi",
+   953→        "target": 1521.2271,
+   954→        "realisasi": 595.0,
+   955→        "ach": 0.3911,
+   956→        "kpi_score": 1.96
+   957→      },
+   958→      {
+   959→        "unit_code": "14204",
+   960→        "kpi_name": "NASABAH TRING!",
+   961→        "bobot": 5.0,
+   962→        "satuan": "Jumlah",
+   963→        "target": 1066.9229,
+   964→        "realisasi": 925.0,
+   965→        "ach": 0.867,
+   966→        "kpi_score": 4.33
+   967→      },
+   968→      {
+   969→        "unit_code": "14204",
+   970→        "kpi_name": "OSL LAYANAN TRING!",
+   971→        "bobot": 5.0,
+   972→        "satuan": "Rp",
+   973→        "target": 773770277.9912,
+   974→        "realisasi": 506283185.0,
+   975→        "ach": 0.6543,
+   976→        "kpi_score": 3.27
+   977→      },
+   978→      {
+   979→        "unit_code": "14204",
+   980→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+   981→        "bobot": 5.0,
+   982→        "satuan": "Jumlah",
+   983→        "target": 10259.21,
+   984→        "realisasi": 3724.0,
+   985→        "ach": 0.363,
+   986→        "kpi_score": 1.81
+   987→      },
+   988→      {
+   989→        "unit_code": "14204",
+   990→        "kpi_name": "CASHLESS DISBURSEMENT",
+   991→        "bobot": 2.0,
+   992→        "satuan": "%",
+   993→        "target": 78.76,
+   994→        "realisasi": 84.04,
+   995→        "ach": 1.067,
+   996→        "kpi_score": 2.13
+   997→      },
+   998→      {
+   999→        "unit_code": "14204",
+  1000→        "kpi_name": "OSL SINERGI HOLDING",
+  1001→        "bobot": 1.5,
+  1002→        "satuan": "Rp",
+  1003→        "target": 89612005.1021,
+  1004→        "realisasi": 232396800.0,
+  1005→        "ach": 1.1,
+  1006→        "kpi_score": 1.65
+  1007→      },
+  1008→      {
+  1009→        "unit_code": "14204",
+  1010→        "kpi_name": "TE SINERGI HOLDING",
+  1011→        "bobot": 1.5,
+  1012→        "satuan": "Gramasi",
+  1013→        "target": 321.3536,
+  1014→        "realisasi": 276.8507,
+  1015→        "ach": 0.8615,
+  1016→        "kpi_score": 1.29
+  1017→      },
+  1018→      {
+  1019→        "unit_code": "14204",
+  1020→        "kpi_name": "KPI STRETCH GOAL",
+  1021→        "bobot": 0,
+  1022→        "satuan": "Rp",
+  1023→        "target": 2154951957.267,
+  1024→        "realisasi": 1536326747.0,
+  1025→        "ach": 0.7129,
+  1026→        "kpi_score": 0
+  1027→      }
+  1028→    ]
+  1029→  },
+  1030→  {
+  1031→    "code": "14205",
+  1032→    "name": "UPC MAYANG",
+  1033→    "total_kpi": 71.53,
+  1034→    "components": [
+  1035→      {
+  1036→        "unit_code": "14205",
+  1037→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+  1038→        "bobot": 12.5,
+  1039→        "satuan": "Rp",
+  1040→        "target": 8226946714.5502,
+  1041→        "realisasi": 10688437097.0,
+  1042→        "ach": 1.2992,
+  1043→        "kpi_score": 16.24
+  1044→      },
+  1045→      {
+  1046→        "unit_code": "14205",
+  1047→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+  1048→        "bobot": 0,
+  1049→        "satuan": "Jumlah",
+  1050→        "target": 0,
+  1051→        "realisasi": 500140613.0,
+  1052→        "ach": 0,
+  1053→        "kpi_score": 0
+  1054→      },
+  1055→      {
+  1056→        "unit_code": "14205",
+  1057→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+  1058→        "bobot": 10.0,
+  1059→        "satuan": "Rp",
+  1060→        "target": 2123756680.3118,
+  1061→        "realisasi": 1279892114.0,
+  1062→        "ach": 0.6027,
+  1063→        "kpi_score": 6.03
+  1064→      },
+  1065→      {
+  1066→        "unit_code": "14205",
+  1067→        "kpi_name": "OSL GROSS POSISI",
+  1068→        "bobot": 5.0,
+  1069→        "satuan": "Rp",
+  1070→        "target": 10848655273.421,
+  1071→        "realisasi": 12944423704.0,
+  1072→        "ach": 1.1,
+  1073→        "kpi_score": 5.5
+  1074→      },
+  1075→      {
+  1076→        "unit_code": "14205",
+  1077→        "kpi_name": "LABA USAHA",
+  1078→        "bobot": 10.0,
+  1079→        "satuan": "Rp",
+  1080→        "target": 1660074089.0,
+  1081→        "realisasi": 721635315.7545,
+  1082→        "ach": 0.4347,
+  1083→        "kpi_score": 4.35
+  1084→      },
+  1085→      {
+  1086→        "unit_code": "14205",
+  1087→        "kpi_name": "NASABAH BARU",
+  1088→        "bobot": 5.0,
+  1089→        "satuan": "Jumlah",
+  1090→        "target": 1197.2742,
+  1091→        "realisasi": 268.0,
+  1092→        "ach": 0.2238,
+  1093→        "kpi_score": 1.12
+  1094→      },
+  1095→      {
+  1096→        "unit_code": "14205",
+  1097→        "kpi_name": "NASABAH BARU AGEN",
+  1098→        "bobot": 2.5,
+  1099→        "satuan": "Jumlah",
+  1100→        "target": 108.2821,
+  1101→        "realisasi": 57.0,
+  1102→        "ach": 0.5264,
+  1103→        "kpi_score": 1.32
+  1104→      },
+  1105→      {
+  1106→        "unit_code": "14205",
+  1107→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+  1108→        "bobot": 5.0,
+  1109→        "satuan": "Jumlah",
+  1110→        "target": 3048.0133,
+  1111→        "realisasi": 1898.0,
+  1112→        "ach": 0.6227,
+  1113→        "kpi_score": 3.11
+  1114→      },
+  1115→      {
+  1116→        "unit_code": "14205",
+  1117→        "kpi_name": "NASABAH TABUNGAN EMAS",
+  1118→        "bobot": 5.0,
+  1119→        "satuan": "Gramasi",
+  1120→        "target": 136.2166,
+  1121→        "realisasi": 126.0,
+  1122→        "ach": 0.925,
+  1123→        "kpi_score": 4.62
+  1124→      },
+  1125→      {
+  1126→        "unit_code": "14205",
+  1127→        "kpi_name": "NPL GADAI",
+  1128→        "bobot": 3.0,
+  1129→        "satuan": "%",
+  1130→        "target": 0.306,
+  1131→        "realisasi": 0.02,
+  1132→        "ach": 1.1,
+  1133→        "kpi_score": 3.3
+  1134→      },
+  1135→      {
+  1136→        "unit_code": "14205",
+  1137→        "kpi_name": "NPL NON GADAI",
+  1138→        "bobot": 2.0,
+  1139→        "satuan": "%",
+  1140→        "target": 14.9678,
+  1141→        "realisasi": 5.5,
+  1142→        "ach": 1.1,
+  1143→        "kpi_score": 2.2
+  1144→      },
+  1145→      {
+  1146→        "unit_code": "14205",
+  1147→        "kpi_name": "NPL EMAS",
+  1148→        "bobot": 2.5,
+  1149→        "satuan": "%",
+  1150→        "target": 0.8748,
+  1151→        "realisasi": 0,
+  1152→        "ach": 1.1,
+  1153→        "kpi_score": 2.75
+  1154→      },
+  1155→      {
+  1156→        "unit_code": "14205",
+  1157→        "kpi_name": "LAR GADAI",
+  1158→        "bobot": 3.0,
+  1159→        "satuan": "%",
+  1160→        "target": 2.7542,
+  1161→        "realisasi": 1.66,
+  1162→        "ach": 1.1,
+  1163→        "kpi_score": 3.3
+  1164→      },
+  1165→      {
+  1166→        "unit_code": "14205",
+  1167→        "kpi_name": "LAR NON GADAI",
+  1168→        "bobot": 2.0,
+  1169→        "satuan": "%",
+  1170→        "target": 23.8619,
+  1171→        "realisasi": 30.56,
+  1172→        "ach": 0.7808,
+  1173→        "kpi_score": 1.56
+  1174→      },
+  1175→      {
+  1176→        "unit_code": "14205",
+  1177→        "kpi_name": "LAR EMAS",
+  1178→        "bobot": 2.5,
+  1179→        "satuan": "%",
+  1180→        "target": 11.0445,
+  1181→        "realisasi": 10.39,
+  1182→        "ach": 1.063,
+  1183→        "kpi_score": 2.66
+  1184→      },
+  1185→      {
+  1186→        "unit_code": "14205",
+  1187→        "kpi_name": "DEPOSITO EMAS",
+  1188→        "bobot": 2.5,
+  1189→        "satuan": "Gramasi",
+  1190→        "target": 321.4707,
+  1191→        "realisasi": 144.0,
+  1192→        "ach": 0.4479,
+  1193→        "kpi_score": 1.12
+  1194→      },
+  1195→      {
+  1196→        "unit_code": "14205",
+  1197→        "kpi_name": "TABUNGAN EMAS",
+  1198→        "bobot": 2.5,
+  1199→        "satuan": "Gramasi",
+  1200→        "target": 1504.8366,
+  1201→        "realisasi": 876.2275,
+  1202→        "ach": 0.5823,
+  1203→        "kpi_score": 1.46
+  1204→      },
+  1205→      {
+  1206→        "unit_code": "14205",
+  1207→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+  1208→        "bobot": 5.0,
+  1209→        "satuan": "Gramasi",
+  1210→        "target": 1290.3171,
+  1211→        "realisasi": 388.5,
+  1212→        "ach": 0.3011,
+  1213→        "kpi_score": 1.51
+  1214→      },
+  1215→      {
+  1216→        "unit_code": "14205",
+  1217→        "kpi_name": "NASABAH TRING!",
+  1218→        "bobot": 5.0,
+  1219→        "satuan": "Jumlah",
+  1220→        "target": 901.5896,
+  1221→        "realisasi": 369.0,
+  1222→        "ach": 0.4093,
+  1223→        "kpi_score": 2.05
+  1224→      },
+  1225→      {
+  1226→        "unit_code": "14205",
+  1227→        "kpi_name": "OSL LAYANAN TRING!",
+  1228→        "bobot": 5.0,
+  1229→        "satuan": "Rp",
+  1230→        "target": 773770277.9912,
+  1231→        "realisasi": 249209552.0,
+  1232→        "ach": 0.3221,
+  1233→        "kpi_score": 1.61
+  1234→      },
+  1235→      {
+  1236→        "unit_code": "14205",
+  1237→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+  1238→        "bobot": 5.0,
+  1239→        "satuan": "Jumlah",
+  1240→        "target": 8125.6298,
+  1241→        "realisasi": 1576.0,
+  1242→        "ach": 0.194,
+  1243→        "kpi_score": 0.97
+  1244→      },
+  1245→      {
+  1246→        "unit_code": "14205",
+  1247→        "kpi_name": "CASHLESS DISBURSEMENT",
+  1248→        "bobot": 2.0,
+  1249→        "satuan": "%",
+  1250→        "target": 78.76,
+  1251→        "realisasi": 88.71,
+  1252→        "ach": 1.1,
+  1253→        "kpi_score": 2.2
+  1254→      },
+  1255→      {
+  1256→        "unit_code": "14205",
+  1257→        "kpi_name": "OSL SINERGI HOLDING",
+  1258→        "bobot": 1.5,
+  1259→        "satuan": "Rp",
+  1260→        "target": 89612005.1021,
+  1261→        "realisasi": 232844750.0,
+  1262→        "ach": 1.1,
+  1263→        "kpi_score": 1.65
+  1264→      },
+  1265→      {
+  1266→        "unit_code": "14205",
+  1267→        "kpi_name": "TE SINERGI HOLDING",
+  1268→        "bobot": 1.5,
+  1269→        "satuan": "Gramasi",
+  1270→        "target": 215.9823,
+  1271→        "realisasi": 129.789,
+  1272→        "ach": 0.6009,
+  1273→        "kpi_score": 0.9
+  1274→      },
+  1275→      {
+  1276→        "unit_code": "14205",
+  1277→        "kpi_name": "KPI STRETCH GOAL",
+  1278→        "bobot": 0,
+  1279→        "satuan": "Rp",
+  1280→        "target": 2245564130.2911,
+  1281→        "realisasi": 1195087975.0,
+  1282→        "ach": 0.5322,
+  1283→        "kpi_score": 0
+  1284→      }
+  1285→    ]
+  1286→  },
+  1287→  {
+  1288→    "code": "17506",
+  1289→    "name": "BRI UNIT SUMBERJATI",
+  1290→    "total_kpi": 39.18,
+  1291→    "components": [
+  1292→      {
+  1293→        "unit_code": "17506",
+  1294→        "kpi_name": "OSL AKTIF RATA-RATA GADAI",
+  1295→        "bobot": 12.5,
+  1296→        "satuan": "Rp",
+  1297→        "target": 2051101917.9577,
+  1298→        "realisasi": 999012015.0,
+  1299→        "ach": 0.4871,
+  1300→        "kpi_score": 6.09
+  1301→      },
+  1302→      {
+  1303→        "unit_code": "17506",
+  1304→        "kpi_name": "OSL AKTIF RATA-RATA NON GADAI",
+  1305→        "bobot": 0,
+  1306→        "satuan": "Jumlah",
+  1307→        "target": 0,
+  1308→        "realisasi": 0,
+  1309→        "ach": 0,
+  1310→        "kpi_score": 0
+  1311→      },
+  1312→      {
+  1313→        "unit_code": "17506",
+  1314→        "kpi_name": "OSL AKTIF RATA-RATA EMAS",
+  1315→        "bobot": 10.0,
+  1316→        "satuan": "Rp",
+  1317→        "target": 1211584144.7407,
+  1318→        "realisasi": 713800438.0,
+  1319→        "ach": 0.5891,
+  1320→        "kpi_score": 5.89
+  1321→      },
+  1322→      {
+  1323→        "unit_code": "17506",
+  1324→        "kpi_name": "OSL GROSS POSISI",
+  1325→        "bobot": 5.0,
+  1326→        "satuan": "Rp",
+  1327→        "target": 2475837838.0426,
+  1328→        "realisasi": 711337500.0,
+  1329→        "ach": 0.2873,
+  1330→        "kpi_score": 1.44
+  1331→      },
+  1332→      {
+  1333→        "unit_code": "17506",
+  1334→        "kpi_name": "LABA USAHA",
+  1335→        "bobot": 10.0,
+  1336→        "satuan": "Rp",
+  1337→        "target": 456197076.0,
+  1338→        "realisasi": 76825973.0,
+  1339→        "ach": 0.1684,
+  1340→        "kpi_score": 1.68
+  1341→      },
+  1342→      {
+  1343→        "unit_code": "17506",
+  1344→        "kpi_name": "NASABAH BARU",
+  1345→        "bobot": 5.0,
+  1346→        "satuan": "Jumlah",
+  1347→        "target": 739.6015,
+  1348→        "realisasi": 44.0,
+  1349→        "ach": 0.0595,
+  1350→        "kpi_score": 0.3
+  1351→      },
+  1352→      {
+  1353→        "unit_code": "17506",
+  1354→        "kpi_name": "NASABAH BARU AGEN",
+  1355→        "bobot": 2.5,
+  1356→        "satuan": "Jumlah",
+  1357→        "target": 29.5515,
+  1358→        "realisasi": 3.0,
+  1359→        "ach": 0.1015,
+  1360→        "kpi_score": 0.25
+  1361→      },
+  1362→      {
+  1363→        "unit_code": "17506",
+  1364→        "kpi_name": "NASABAH PEMBIAYAAN TAHUNAN",
+  1365→        "bobot": 5.0,
+  1366→        "satuan": "Jumlah",
+  1367→        "target": 800.7592,
+  1368→        "realisasi": 161.0,
+  1369→        "ach": 0.2011,
+  1370→        "kpi_score": 1.01
+  1371→      },
+  1372→      {
+  1373→        "unit_code": "17506",
+  1374→        "kpi_name": "NASABAH TABUNGAN EMAS",
+  1375→        "bobot": 5.0,
+  1376→        "satuan": "Gramasi",
+  1377→        "target": 48.1997,
+  1378→        "realisasi": 22.0,
+  1379→        "ach": 0.4564,
+  1380→        "kpi_score": 2.28
+  1381→      },
+  1382→      {
+  1383→        "unit_code": "17506",
+  1384→        "kpi_name": "NPL GADAI",
+  1385→        "bobot": 4.0,
+  1386→        "satuan": "%",
+  1387→        "target": 0.306,
+  1388→        "realisasi": 0,
+  1389→        "ach": 1.1,
+  1390→        "kpi_score": 4.4
+  1391→      },
+  1392→      {
+  1393→        "unit_code": "17506",
+  1394→        "kpi_name": "NPL NON GADAI",
+  1395→        "bobot": 0,
+  1396→        "satuan": "%",
+  1397→        "target": 0,
+  1398→        "realisasi": 0,
+  1399→        "ach": 0,
+  1400→        "kpi_score": 0
+  1401→      },
+  1402→      {
+  1403→        "unit_code": "17506",
+  1404→        "kpi_name": "NPL EMAS",
+  1405→        "bobot": 3.5,
+  1406→        "satuan": "%",
+  1407→        "target": 0.8748,
+  1408→        "realisasi": 0,
+  1409→        "ach": 1.1,
+  1410→        "kpi_score": 3.85
+  1411→      },
+  1412→      {
+  1413→        "unit_code": "17506",
+  1414→        "kpi_name": "LAR GADAI",
+  1415→        "bobot": 4.0,
+  1416→        "satuan": "%",
+  1417→        "target": 2.7542,
+  1418→        "realisasi": 0.39,
+  1419→        "ach": 1.1,
+  1420→        "kpi_score": 4.4
+  1421→      },
+  1422→      {
+  1423→        "unit_code": "17506",
+  1424→        "kpi_name": "LAR NON GADAI",
+  1425→        "bobot": 0,
+  1426→        "satuan": "%",
+  1427→        "target": 0,
+  1428→        "realisasi": 0,
+  1429→        "ach": 0,
+  1430→        "kpi_score": 0
+  1431→      },
+  1432→      {
+  1433→        "unit_code": "17506",
+  1434→        "kpi_name": "LAR EMAS",
+  1435→        "bobot": 3.5,
+  1436→        "satuan": "%",
+  1437→        "target": 11.0445,
+  1438→        "realisasi": 28.19,
+  1439→        "ach": 0.3918,
+  1440→        "kpi_score": 1.37
+  1441→      },
+  1442→      {
+  1443→        "unit_code": "17506",
+  1444→        "kpi_name": "DEPOSITO EMAS",
+  1445→        "bobot": 2.5,
+  1446→        "satuan": "Gramasi",
+  1447→        "target": 130.3535,
+  1448→        "realisasi": 0,
+  1449→        "ach": 0,
+  1450→        "kpi_score": 0
+  1451→      },
+  1452→      {
+  1453→        "unit_code": "17506",
+  1454→        "kpi_name": "TABUNGAN EMAS",
+  1455→        "bobot": 2.5,
+  1456→        "satuan": "Gramasi",
+  1457→        "target": 400.0,
+  1458→        "realisasi": 0,
+  1459→        "ach": 0,
+  1460→        "kpi_score": 0
+  1461→      },
+  1462→      {
+  1463→        "unit_code": "17506",
+  1464→        "kpi_name": "GRAMASI PRODUK GALERI 24",
+  1465→        "bobot": 5.0,
+  1466→        "satuan": "Gramasi",
+  1467→        "target": 1165.9487,
+  1468→        "realisasi": 23.0,
+  1469→        "ach": 0.0197,
+  1470→        "kpi_score": 0.1
+  1471→      },
+  1472→      {
+  1473→        "unit_code": "17506",
+  1474→        "kpi_name": "NASABAH TRING!",
+  1475→        "bobot": 5.0,
+  1476→        "satuan": "Jumlah",
+  1477→        "target": 577.5896,
+  1478→        "realisasi": 67.0,
+  1479→        "ach": 0.116,
+  1480→        "kpi_score": 0.58
+  1481→      },
+  1482→      {
+  1483→        "unit_code": "17506",
+  1484→        "kpi_name": "OSL LAYANAN TRING!",
+  1485→        "bobot": 5.0,
+  1486→        "satuan": "Rp",
+  1487→        "target": 773770277.9912,
+  1488→        "realisasi": 149479550.0,
+  1489→        "ach": 0.1932,
+  1490→        "kpi_score": 0.97
+  1491→      },
+  1492→      {
+  1493→        "unit_code": "17506",
+  1494→        "kpi_name": "FREKUENSI TRANSAKSI TRING!",
+  1495→        "bobot": 5.0,
+  1496→        "satuan": "Jumlah",
+  1497→        "target": 7731.2994,
+  1498→        "realisasi": 335.0,
+  1499→        "ach": 0.0433,
+  1500→        "kpi_score": 0.22
+  1501→      },
+  1502→      {
+  1503→        "unit_code": "17506",
+  1504→        "kpi_name": "CASHLESS DISBURSEMENT",
+  1505→        "bobot": 2.0,
+  1506→        "satuan": "%",
+  1507→        "target": 78.76,
+  1508→        "realisasi": 88.89,
+  1509→        "ach": 1.1,
+  1510→        "kpi_score": 2.2
+  1511→      },
+  1512→      {
+  1513→        "unit_code": "17506",
+  1514→        "kpi_name": "OSL SINERGI HOLDING",
+  1515→        "bobot": 1.5,
+  1516→        "satuan": "Rp",
+  1517→        "target": 382829717.065,
+  1518→        "realisasi": 310761653.0,
+  1519→        "ach": 0.8117,
+  1520→        "kpi_score": 1.22
+  1521→      },
+  1522→      {
+  1523→        "unit_code": "17506",
+  1524→        "kpi_name": "TE SINERGI HOLDING",
+  1525→        "bobot": 1.5,
+  1526→        "satuan": "Gramasi",
+  1527→        "target": 149.5242,
+  1528→        "realisasi": 92.8097,
+  1529→        "ach": 0.6207,
+  1530→        "kpi_score": 0.93
+  1531→      },
+  1532→      {
+  1533→        "unit_code": "17506",
+  1534→        "kpi_name": "KPI STRETCH GOAL",
+  1535→        "bobot": 0,
+  1536→        "satuan": "Rp",
+  1537→        "target": 1352998713.3983,
+  1538→        "realisasi": 318941203.0,
+  1539→        "ach": 0.2357,
+  1540→        "kpi_score": 0
+  1541→      }
+  1542→    ]
+  1543→  }
+  1544→]

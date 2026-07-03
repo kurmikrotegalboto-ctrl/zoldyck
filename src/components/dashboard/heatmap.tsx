@@ -1,45 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { kpiData, getAchBadge, getAllKpiNames } from "@/lib/kpi-data";
+import type { KpiUnit } from "@/lib/kpi-types";
+import { getAllKpiNames, getHeatmapColor } from "@/lib/kpi-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Grid3x3 } from "lucide-react";
 
-function getHeatmapColor(ach: number, bobot: number): string {
-  if (bobot === 0) return "bg-gray-100";
-  if (ach >= 1.1) return "bg-emerald-600 text-white";
-  if (ach >= 1.0) return "bg-emerald-400 text-white";
-  if (ach >= 0.9) return "bg-emerald-200 text-emerald-900";
-  if (ach >= 0.8) return "bg-amber-200 text-amber-900";
-  if (ach >= 0.6) return "bg-orange-300 text-orange-900";
-  if (ach >= 0.3) return "bg-red-300 text-red-900";
-  return "bg-red-600 text-white";
+interface HeatmapViewProps {
+  units: KpiUnit[];
 }
 
-export function HeatmapView() {
-  const kpiNames = getAllKpiNames();
+export function HeatmapView({ units }: HeatmapViewProps) {
+  const kpiNames = getAllKpiNames(units);
   const [sortBy, setSortBy] = useState<string>("default");
 
   const sortedNames = [...kpiNames];
   if (sortBy === "avg-ach") {
     sortedNames.sort((a, b) => {
-      const avgA = getAvgAch(a);
-      const avgB = getAvgAch(b);
+      const avgA = getAvgAch(a, units);
+      const avgB = getAvgAch(b, units);
       return avgA - avgB;
     });
   } else if (sortBy === "max-variance") {
     sortedNames.sort((a, b) => {
-      const varA = getMaxVariance(a);
-      const varB = getMaxVariance(b);
+      const varA = getMaxVariance(a, units);
+      const varB = getMaxVariance(b, units);
       return varB - varA;
     });
   } else if (sortBy === "all-critical") {
     sortedNames.sort((a, b) => {
-      const critA = countCritical(a);
-      const critB = countCritical(b);
+      const critA = countCritical(a, units);
+      const critB = countCritical(b, units);
       return critB - critA;
     });
   }
@@ -88,7 +81,7 @@ export function HeatmapView() {
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-2 font-semibold sticky left-0 bg-muted/50 min-w-[200px] z-10">Komponen KPI</th>
-                    {kpiData.map(u => (
+                    {units.map(u => (
                       <th key={u.code} className="text-center p-2 font-semibold min-w-[110px]">
                         <div className="truncate text-[10px]">{u.name}</div>
                       </th>
@@ -98,11 +91,11 @@ export function HeatmapView() {
                 </thead>
                 <tbody>
                   {sortedNames.map((name, idx) => {
-                    const achValues = kpiData.map(u => {
+                    const achValues = units.map(u => {
                       const c = u.components.find(comp => comp.kpi_name === name);
                       return c && c.bobot > 0 ? c.ach : null;
                     });
-                    const validAchs = achValues.filter(v => v !== null) as number[];
+                    const validAchs = achValues.filter((v): v is number => v !== null);
                     const avg = validAchs.length > 0 ? validAchs.reduce((s, v) => s + v, 0) / validAchs.length : 0;
 
                     return (
@@ -110,7 +103,7 @@ export function HeatmapView() {
                         <td className="p-2 font-medium sticky left-0 bg-inherit z-10 text-[11px]">
                           <div className="max-w-[200px] truncate">{name}</div>
                         </td>
-                        {kpiData.map(u => {
+                        {units.map(u => {
                           const c = u.components.find(comp => comp.kpi_name === name);
                           if (!c || c.bobot === 0) {
                             return <td key={u.code} className="p-2"><div className="h-8 bg-gray-100 rounded flex items-center justify-center text-gray-300">-</div></td>;
@@ -142,27 +135,27 @@ export function HeatmapView() {
   );
 }
 
-function getAvgAch(name: string): number {
-  const achs = kpiData.map(u => {
+function getAvgAch(name: string, units: KpiUnit[]): number {
+  const achs = units.map(u => {
     const c = u.components.find(comp => comp.kpi_name === name);
     return c && c.bobot > 0 ? c.ach : null;
-  }).filter(v => v !== null) as number[];
+  }).filter((v): v is number => v !== null);
   return achs.length > 0 ? achs.reduce((s, v) => s + v, 0) / achs.length : 0;
 }
 
-function getMaxVariance(name: string): number {
-  const achs = kpiData.map(u => {
+function getMaxVariance(name: string, units: KpiUnit[]): number {
+  const achs = units.map(u => {
     const c = u.components.find(comp => comp.kpi_name === name);
     return c && c.bobot > 0 ? c.ach : null;
-  }).filter(v => v !== null) as number[];
+  }).filter((v): v is number => v !== null);
   if (achs.length < 2) return 0;
   const max = Math.max(...achs);
   const min = Math.min(...achs);
   return max - min;
 }
 
-function countCritical(name: string): number {
-  return kpiData.filter(u => {
+function countCritical(name: string, units: KpiUnit[]): number {
+  return units.filter(u => {
     const c = u.components.find(comp => comp.kpi_name === name);
     return c && c.bobot > 0 && c.ach > 0 && c.ach < 0.5;
   }).length;
