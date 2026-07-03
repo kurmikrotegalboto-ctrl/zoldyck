@@ -22,6 +22,65 @@ export interface SnapshotData {
   units: KpiUnit[];
 }
 
+// KOMPONEN KPI grouping (matches Excel layout)
+export interface KomponenGroup {
+  no: number;
+  name: string;
+  subKomponen: string[];
+}
+
+export const KOMPONEN_GROUPS: KomponenGroup[] = [
+  { no: 1, name: "OUTSTANDING LOAN", subKomponen: ["OSL AKTIF RATA-RATA GADAI", "OSL AKTIF RATA-RATA NON GADAI", "OSL AKTIF RATA-RATA EMAS", "OSL GROSS POSISI"] },
+  { no: 2, name: "LABA USAHA", subKomponen: ["LABA USAHA"] },
+  { no: 3, name: "CIR", subKomponen: ["CIR"] },
+  { no: 4, name: "NASABAH", subKomponen: ["NASABAH BARU", "NASABAH BARU AGEN", "NASABAH PEMBIAYAAN TAHUNAN", "NASABAH TABUNGAN EMAS"] },
+  { no: 5, name: "KUALITAS KREDIT", subKomponen: ["NPL GADAI", "NPL NON GADAI", "NPL EMAS", "LAR GADAI", "LAR NON GADAI", "LAR EMAS"] },
+  { no: 6, name: "REVAMP PEGADAIAN BRAND", subKomponen: ["BRAND AWARENESS"] },
+  { no: 7, name: "GOLD ECOSYSTEM", subKomponen: ["DEPOSITO EMAS", "TABUNGAN EMAS", "GRAMASI PRODUK GALERI 24"] },
+  { no: 8, name: "PEGADAIAN DIGITAL TRING!", subKomponen: ["NASABAH TRING!", "OSL LAYANAN TRING!", "FREKUENSI TRANSAKSI TRING!"] },
+  { no: 9, name: "SINERGI HOLDING UMI", subKomponen: ["CASHLESS DISBURSEMENT", "OSL SINERGI HOLDING", "TE SINERGI HOLDING"] },
+  { no: 10, name: "KPI STRETCH GOAL", subKomponen: ["KPI STRETCH GOAL"] },
+];
+
+// CAPPING map for each sub-komponen
+export const CAPPING_MAP: Record<string, string> = {
+  "OSL AKTIF RATA-RATA GADAI": "Unlimited",
+  "OSL AKTIF RATA-RATA NON GADAI": "110",
+  "OSL AKTIF RATA-RATA EMAS": "Unlimited",
+  "OSL GROSS POSISI": "110",
+  "LABA USAHA": "110",
+  "CIR": "110",
+  "NASABAH BARU": "110",
+  "NASABAH BARU AGEN": "110",
+  "NASABAH PEMBIAYAAN TAHUNAN": "110",
+  "NASABAH TABUNGAN EMAS": "110",
+  "NPL GADAI": "110",
+  "NPL NON GADAI": "110",
+  "NPL EMAS": "110",
+  "LAR GADAI": "110",
+  "LAR NON GADAI": "110",
+  "LAR EMAS": "110",
+  "BRAND AWARENESS": "110",
+  "DEPOSITO EMAS": "Unlimited",
+  "TABUNGAN EMAS": "110",
+  "GRAMASI PRODUK GALERI 24": "110",
+  "NASABAH TRING!": "110",
+  "OSL LAYANAN TRING!": "110",
+  "FREKUENSI TRANSAKSI TRING!": "110",
+  "CASHLESS DISBURSEMENT": "110",
+  "OSL SINERGI HOLDING": "110",
+  "TE SINERGI HOLDING": "110",
+  "KPI STRETCH GOAL": "-",
+};
+
+// Ordered sub-komponen list (flat, in display order)
+export const ALL_SUB_KOMPONEN: string[] = KOMPONEN_GROUPS.flatMap(g => g.subKomponen);
+
+// Helper: get component KPI score from a unit by sub-komponen name
+export function getKpiForSub(unit: KpiUnit, subName: string): KpiComponent | undefined {
+  return unit.components.find(c => c.kpi_name === subName);
+}
+
 // Color/badge helpers
 export function getAchColor(ach: number, bobot: number): string {
   if (bobot === 0) return "bg-gray-100 text-gray-400";
