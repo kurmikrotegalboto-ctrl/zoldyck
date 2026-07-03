@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+*.md
+.env
+data/
+upload/
+scripts/
+examples/
+db/
+*.log

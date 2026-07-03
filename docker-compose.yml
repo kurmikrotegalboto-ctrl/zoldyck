@@ -1,0 +1,15 @@
+services:
+  monev-kpi:
+    build: .
+    container_name: monev-kpi-tegalboto
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist KPI data across container restarts
+      - kpi-data:/app/data
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  kpi-data:

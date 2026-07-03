@@ -1,23 +1,22 @@
-:81 {
-	@transform_port_query {
-		query XTransformPort=*
-	}
+# Caddyfile for Monev KPI Dashboard
+# Replace your-domain.com with your actual domain or IP
 
-	handle @transform_port_query {
-		reverse_proxy localhost:{query.XTransformPort} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
-
-	handle {
-		reverse_proxy localhost:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
-	}
+:80 {
+    # Reverse proxy to Next.js
+    reverse_proxy localhost:3000 {
+        header_up Host {host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Real-IP {remote_host}
+    }
 }
+
+# Uncomment below for HTTPS with auto-SSL (requires domain)
+# your-domain.com {
+#     reverse_proxy localhost:3000 {
+#         header_up Host {host}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up X-Forwarded-Proto {scheme}
+#         header_up X-Real-IP {remote_host}
+#     }
+# }

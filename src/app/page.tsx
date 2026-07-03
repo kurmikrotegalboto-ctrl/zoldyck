@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Activity, CalendarDays } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, Loader2, ChevronDown, ChevronUp, Activity, CalendarDays, LogOut, Trash2, Settings, Key, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,8 +9,14 @@ import { RecapTable } from "@/components/dashboard/recap-table";
 import { UnitDetailTable } from "@/components/dashboard/unit-detail-table";
 import { TrendCharts } from "@/components/dashboard/trend-charts";
 import { defaultSnapshot } from "@/lib/default-data";
-import { parseMultipleFiles, type ParsedFile } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // Sheet tab definitions matching Excel layout
 const SHEET_TABS = [
@@ -31,8 +37,37 @@ export default function Home() {
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
   const [activeSheet, setActiveSheet] = useState("rekap");
   const [showUpload, setShowUpload] = useState(false);
-  const [fileStatuses, setFileStatuses] = useState<{ file: File; status: "pending" | "parsing" | "success" | "error" }[]>([]);
+  const [fileStatuses, setFileStatuses] = useState<{ file: File; status: "pending" | "parsing" | "success" | "error"; errorMsg?: string }[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isServerMode, setIsServerMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteDate, setDeleteDate] = useState("");
+  // Password change
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [pwdMsg, setPwdMsg] = useState("");
+
+  // Load snapshots from server on mount
+  useEffect(() => {
+    fetchSnapshots();
+  }, []);
+
+  const fetchSnapshots = async () => {
+    try {
+      const res = await fetch("/api/snapshots");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.snapshots && data.snapshots.length > 0) {
+          setSnapshots(data.snapshots);
+          setSelectedSnapshotIndex(data.snapshots.length - 1);
+          setIsServerMode(true);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch snapshots:", e);
+    }
+  };
 
   // Current and previous snapshot
   const currentSnapshot = snapshots[selectedSnapshotIndex];
@@ -41,60 +76,96 @@ export default function Home() {
   // Current units
   const latestUnits: KpiUnit[] = currentSnapshot?.units ?? [];
 
-  // Handle file uploads
-  const handleFilesParsed = useCallback((parsedFiles: ParsedFile[]) => {
-    if (parsedFiles.length === 0) return;
-    const dateGroups: Record<string, { dateSort: string; files: ParsedFile[] }> = {};
-    parsedFiles.forEach((pf) => {
-      if (!dateGroups[pf.date]) dateGroups[pf.date] = { dateSort: pf.dateSort, files: [] };
-      dateGroups[pf.date].files.push(pf);
-    });
-    const newSnapshots = [...snapshots];
-    Object.entries(dateGroups).forEach(([date, group]) => {
-      const existingIdx = newSnapshots.findIndex((s) => s.date === date);
-      if (existingIdx >= 0) {
-        const existing = newSnapshots[existingIdx];
-        const updatedUnits = [...existing.units];
-        group.files.forEach((pf) => {
-          const unitIdx = updatedUnits.findIndex((u) => u.code === pf.unitKey);
-          if (unitIdx >= 0) updatedUnits[unitIdx] = pf.unit;
-          else updatedUnits.push(pf.unit);
-        });
-        newSnapshots[existingIdx] = { ...existing, units: updatedUnits };
-      } else {
-        newSnapshots.push({
-          date,
-          dateSort: group.dateSort,
-          units: group.files.map((pf) => pf.unit),
-        });
-      }
-    });
-    newSnapshots.sort((a, b) => a.dateSort.localeCompare(b.dateSort));
-    setSnapshots(newSnapshots);
-    setSelectedSnapshotIndex(newSnapshots.length - 1);
-  }, [snapshots]);
-
+  // Handle file uploads - send to server API
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     const xlsxFiles = Array.from(files).filter((f) => f.name.endsWith(".xlsx"));
     if (xlsxFiles.length === 0) return;
+
     const newStatuses = xlsxFiles.map((f) => ({ file: f, status: "parsing" as const }));
     setFileStatuses((prev) => [...prev, ...newStatuses]);
+
     try {
-      const parsed = await parseMultipleFiles(xlsxFiles);
-      const parsedFilenames = new Set(parsed.map((p) => p.filename));
-      setFileStatuses((prev) =>
-        prev.map((s) => {
-          if (s.status !== "parsing") return s;
-          return parsedFilenames.has(s.file.name)
-            ? { ...s, status: "success" as const }
-            : { ...s, status: "error" as const };
-        })
-      );
-      if (parsed.length > 0) handleFilesParsed(parsed);
+      const formData = new FormData();
+      xlsxFiles.forEach((f) => formData.append("files", f));
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Update statuses
+        setFileStatuses((prev) =>
+          prev.map((s) => {
+            if (s.status !== "parsing") return s;
+            const result = data.results?.find((r: { filename: string; success: boolean; error?: string }) => r.filename === s.file.name);
+            if (result?.success) {
+              return { ...s, status: "success" as const };
+            }
+            return { ...s, status: "error" as const, errorMsg: result?.error || "Gagal" };
+          })
+        );
+
+        if (data.snapshots) {
+          setSnapshots(data.snapshots);
+          setSelectedSnapshotIndex(data.snapshots.length - 1);
+          setIsServerMode(true);
+        }
+      } else {
+        setFileStatuses((prev) =>
+          prev.map((s) => s.status === "parsing" ? { ...s, status: "error" as const, errorMsg: "Upload gagal" } : s)
+        );
+      }
     } catch {
-      setFileStatuses((prev) => prev.map((s) => s.status === "parsing" ? { ...s, status: "error" as const } : s));
+      setFileStatuses((prev) =>
+        prev.map((s) => s.status === "parsing" ? { ...s, status: "error" as const, errorMsg: "Koneksi gagal" } : s)
+      );
     }
-  }, [handleFilesParsed]);
+  }, []);
+
+  // Delete snapshot
+  const handleDeleteSnapshot = async () => {
+    if (!deleteDate) return;
+    try {
+      const res = await fetch(`/api/snapshots?date=${encodeURIComponent(deleteDate)}`, { method: "DELETE" });
+      if (res.ok) {
+        const data = await res.json();
+        setSnapshots(data.snapshots);
+        if (selectedSnapshotIndex >= data.snapshots.length) {
+          setSelectedSnapshotIndex(Math.max(0, data.snapshots.length - 1));
+        }
+        setShowDeleteConfirm(false);
+      }
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+  };
+
+  // Logout
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    window.location.href = "/login";
+  };
+
+  // Change password
+  const handleChangePassword = async () => {
+    if (!currentPwd || !newPwd) return;
+    const res = await fetch("/api/auth", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setPwdMsg("Password berhasil diubah!");
+      setCurrentPwd("");
+      setNewPwd("");
+      setTimeout(() => { setPwdMsg(""); setShowSettings(false); }, 2000);
+    } else {
+      setPwdMsg(data.error || "Gagal mengubah password");
+    }
+  };
 
   // Determine which tab content to show
   const renderContent = () => {
@@ -102,13 +173,11 @@ export default function Home() {
       return <RecapTable units={latestUnits} prevSnapshot={prevSnapshot} currentSnapshot={currentSnapshot} />;
     }
     if (activeSheet === "konsol") {
-      // KONSOL = consolidated view (same as REKAP but titled differently)
       return <RecapTable units={latestUnits} prevSnapshot={prevSnapshot} currentSnapshot={currentSnapshot} />;
     }
     if (activeSheet === "tren") {
       return <TrendCharts snapshots={snapshots} />;
     }
-    // Unit detail tab
     const tab = SHEET_TABS.find((t) => t.key === activeSheet);
     if (tab?.unitCode) {
       const unit = latestUnits.find((u) => u.code === tab.unitCode);
@@ -127,7 +196,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Top bar - minimal like Excel title bar */}
+      {/* Top bar */}
       <header className="bg-white border-b shadow-sm">
         <div className="max-w-full mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
@@ -136,8 +205,13 @@ export default function Home() {
               <h1 className="text-sm font-black tracking-tight">
                 MONEV KPI TEGALBOTO 2026
               </h1>
+              {isServerMode && (
+                <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                  Online
+                </Badge>
+              )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
                 <Select value={String(selectedSnapshotIndex)} onValueChange={(v) => setSelectedSnapshotIndex(Number(v))}>
@@ -153,6 +227,17 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
+              {isServerMode && currentSnapshot && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] text-red-500 hover:text-red-700 hover:bg-red-50 gap-1"
+                  onClick={() => { setDeleteDate(currentSnapshot.dateSort); setShowDeleteConfirm(true); }}
+                  title="Hapus periode ini"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -162,6 +247,24 @@ export default function Home() {
                 <Upload className="h-3 w-3" />
                 Upload KPI
                 {showUpload ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] gap-1"
+                onClick={() => { setShowSettings(true); setPwdMsg(""); setCurrentPwd(""); setNewPwd(""); }}
+                title="Pengaturan"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                <LogOut className="h-3.5 w-3.5" />
               </Button>
               <Badge variant="outline" className="text-[10px]">
                 {latestUnits.length} unit
@@ -200,7 +303,7 @@ export default function Home() {
                 {isDragging ? "Lepaskan file di sini..." : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}
               </p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                Mendukung upload 7 file sekaligus
+                Mendukung upload 7 file sekaligus &bull; Data tersimpan di server
               </p>
             </div>
             {fileStatuses.length > 0 && (
@@ -218,7 +321,7 @@ export default function Home() {
                       <span className="flex-1 truncate">{fs.file.name}</span>
                       {fs.status === "parsing" && <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />}
                       {fs.status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
-                      {fs.status === "error" && <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+                      {fs.status === "error" && <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" title={fs.errorMsg} />}
                     </div>
                   ))}
                 </div>
@@ -234,7 +337,6 @@ export default function Home() {
           <div className="flex overflow-x-auto gap-0.5 no-scrollbar">
             {SHEET_TABS.map((tab) => {
               const isActive = activeSheet === tab.key;
-              // Check if unit tab has data
               let hasData = true;
               if (tab.unitCode && !latestUnits.find((u) => u.code === tab.unitCode)) {
                 hasData = false;
@@ -268,14 +370,77 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer - minimal */}
+      {/* Footer */}
       <footer className="bg-white border-t">
         <div className="max-w-full mx-auto px-4 py-1.5">
           <p className="text-[9px] text-gray-400 text-center">
-            Dashboard Monev KPI Kanwil Surabaya &mdash; Data bersumber dari Komparasi Komponen KPI CP Tegalboto v2
+            Dashboard Monev KPI Kanwil Surabaya &mdash; Data tersimpan di server
           </p>
         </div>
       </footer>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Pengaturan
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium mb-2">Ganti Password</h3>
+              <input
+                type="password"
+                placeholder="Password lama"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+              />
+              <input
+                type="password"
+                placeholder="Password baru (min. 4 karakter)"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+            {pwdMsg && (
+              <p className={`text-sm ${pwdMsg.includes("berhasil") ? "text-emerald-600" : "text-red-600"}`}>
+                {pwdMsg}
+              </p>
+            )}
+            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+              <p className="font-medium mb-1">Info Server</p>
+              <p>Mode: {isServerMode ? "Server (data tersimpan)" : "Lokal (data sementara)"}</p>
+              <p>Total Periode: {snapshots.length}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSettings(false)}>Tutup</Button>
+            <Button onClick={handleChangePassword} disabled={!currentPwd || !newPwd}>
+              Simpan Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Periode</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Yakin ingin menghapus data periode <strong>{deleteDate}</strong>? Tindakan ini tidak bisa dibatalkan.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Batal</Button>
+            <Button variant="destructive" onClick={handleDeleteSnapshot}>Hapus</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
