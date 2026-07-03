@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { Lock, Eye, EyeOff, LogIn, ShieldAlert, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
@@ -9,10 +9,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    if (!password.trim() || locked) return;
     
     setLoading(true);
     setError("");
@@ -24,11 +26,18 @@ export default function LoginPage() {
         body: JSON.stringify({ password }),
       });
       
+      const data = await res.json();
+
       if (res.ok) {
         window.location.href = "/";
+      } else if (res.status === 429) {
+        setLocked(true);
+        setError(data.error || "Akun terkunci. Coba lagi dalam 15 menit.");
       } else {
-        const data = await res.json();
         setError(data.error || "Login gagal");
+        if (data.remainingAttempts !== undefined) {
+          setRemaining(data.remainingAttempts);
+        }
       }
     } catch {
       setError("Terjadi kesalahan koneksi");
@@ -53,8 +62,19 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-8 space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-                {error}
+              <div className={`border rounded-lg px-4 py-3 text-sm flex items-start gap-2 ${
+                locked 
+                  ? "bg-amber-50 border-amber-200 text-amber-800" 
+                  : "bg-red-50 border-red-200 text-red-700"
+              }`}>
+                {locked ? <Clock className="h-4 w-4 mt-0.5 shrink-0" /> : <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />}
+                <span>{error}</span>
+              </div>
+            )}
+
+            {remaining !== null && remaining < 5 && !locked && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-lg px-3 py-2 text-center">
+                Sisa percobaan: <strong>{remaining}</strong> kali. Setelah itu akun akan terkunci 15 menit.
               </div>
             )}
             
@@ -66,15 +86,18 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setRemaining(null); }}
                   placeholder="Masukkan password"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent pr-10"
                   autoFocus
+                  disabled={locked}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -83,8 +106,8 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              disabled={loading || !password.trim()}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5"
+              disabled={loading || !password.trim() || locked}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 disabled:opacity-50"
             >
               {loading ? (
                 <div className="flex items-center gap-2">

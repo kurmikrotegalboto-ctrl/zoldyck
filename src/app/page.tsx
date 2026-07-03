@@ -400,7 +400,7 @@ export default function Home() {
               />
               <input
                 type="password"
-                placeholder="Password baru (min. 4 karakter)"
+                placeholder="Password baru (min. 6 karakter)"
                 value={newPwd}
                 onChange={(e) => setNewPwd(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-sm"
