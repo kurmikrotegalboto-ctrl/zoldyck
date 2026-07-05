@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPassword, changePassword } from "@/lib/server/store";
+import { verifyLogin, changePassword } from "@/lib/server/store";
 import { cookies } from "next/headers";
 
 const TOKEN_EXPIRY_HOURS = 24;
@@ -26,17 +26,17 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limit: reject if body too large
     const body = await request.json();
-    const { password } = body;
+    const { username, password } = body;
 
-    if (!password || typeof password !== "string") {
-      return NextResponse.json({ error: "Password diperlukan" }, { status: 400 });
+    if (!username || !password || typeof username !== "string" || typeof password !== "string") {
+      return NextResponse.json({ error: "Username dan password diperlukan" }, { status: 400 });
     }
 
     if (password.length > 64) {
       return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
     }
 
-    const result = verifyPassword(password);
+    const result = verifyLogin(username, password);
 
     if (result.locked) {
       // Return 429 with retry-after hint

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Eye, EyeOff, LogIn, ShieldAlert, Clock } from "lucide-react";
+import { Lock, Eye, EyeOff, LogIn, ShieldAlert, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -14,7 +15,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim() || locked) return;
+    if (!username.trim() || !password.trim() || locked) return;
     
     setLoading(true);
     setError("");
@@ -23,7 +24,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
       
       const data = await res.json();
@@ -80,6 +81,25 @@ export default function LoginPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Username
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => { setUsername(e.target.value); setRemaining(null); }}
+                  placeholder="Masukkan username"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent pl-10"
+                  autoFocus
+                  disabled={locked}
+                  autoComplete="username"
+                />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -88,11 +108,11 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setRemaining(null); }}
                   placeholder="Masukkan password"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent pr-10"
-                  autoFocus
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent pr-10 pl-10"
                   disabled={locked}
                   autoComplete="current-password"
                 />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -106,7 +126,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              disabled={loading || !password.trim() || locked}
+              disabled={loading || !username.trim() || !password.trim() || locked}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 disabled:opacity-50"
             >
               {loading ? (

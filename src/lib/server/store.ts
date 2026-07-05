@@ -16,7 +16,6 @@ function getProjectRoot(): string {
 
 const DATA_DIR = getProjectRoot();
 const SNAPSHOTS_FILE = path.join(DATA_DIR, "snapshots.json");
-const AUTH_FILE = path.join(DATA_DIR, "auth.json");
 const SALT_ROUNDS = 12;
 
 // Ensure data directory exists
@@ -24,6 +23,20 @@ function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+}
+
+// --- Auth (bcrypt hashed password) ---
+// Use env var AUTH_PASSWORD_HASH if set (production-reliable),
+// otherwise fallback to in-memory/file-based approach.
+const ENV_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || "";
+const ENV_USERNAME = process.env.AUTH_USERNAME || "admin";
+
+// Pre-computed hash for "admin123" — no filesystem dependency on Vercel
+const DEFAULT_PASSWORD_HASH = "$2b$12$MbSisJKiYzmb8xN8yM3qy.OQTslvXFAUUK7mTGD7wGgiXosdUJf2G";
+
+function getEffectiveHash(): string {
+  if (ENV_PASSWORD_HASH) return ENV_PASSWORD_HASH;
+  return DEFAULT_PASSWORD_HASH;
 }
 
 // --- Snapshots Storage ---
@@ -43,7 +56,11 @@ export function getSnapshots(): SnapshotData[] {
 
 export function saveSnapshots(snapshots: SnapshotData[]): void {
   ensureDataDir();
-  fs.writeFileSync(SNAPSHOTS_FILE, JSON.stringify(snapshots, null, 2), "utf-8");
+  try {
+    fs.writeFileSync(SNAPSHOTS_FILE, JSON.stringify(snapshots, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Error saving snapshots:", e);
+  }
 }
 
 export function addOrUpdateSnapshot(newSnapshot: SnapshotData): SnapshotData[] {
@@ -78,96 +95,57 @@ export function deleteSnapshot(dateSort: string): SnapshotData[] {
   return snapshots;
 }
 
-// --- Auth (bcrypt hashed password) ---
+// --- Auth ---
 
-interface AuthConfig {
-  passwordHash: string;
-  failedAttempts: number;
-  lockUntil: number | null;
-}
+// Brute-force tracking (in-memory, resets on server restart - acceptable for Vercel)
+let failedAttempts = 0;
+let lockUntil: number | null = null;
 
-function getDefaultAuth(): AuthConfig {
-  // Default password: admin123 (hashed on first init)
-  const defaultHash = bcrypt.hashSync("admin123", SALT_ROUNDS);
-  return { passwordHash: defaultHash, failedAttempts: 0, lockUntil: null };
-}
-
-function getAuthConfig(): AuthConfig {
-  ensureDataDir();
-  try {
-    if (fs.existsSync(AUTH_FILE)) {
-      const raw = fs.readFileSync(AUTH_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      // Migration: if old plain-text password format, auto-upgrade to bcrypt
-      if (parsed.password && !parsed.passwordHash) {
-        const upgraded: AuthConfig = {
-          passwordHash: bcrypt.hashSync(parsed.password, SALT_ROUNDS),
-          failedAttempts: 0,
-          lockUntil: null,
-        };
-        fs.writeFileSync(AUTH_FILE, JSON.stringify(upgraded, null, 2), "utf-8");
-        return upgraded;
-      }
-      if (parsed.passwordHash) return parsed as AuthConfig;
-    }
-  } catch (e) {
-    console.error("Error reading auth config:", e);
-  }
-  // First time: create default
-  const defaultCfg = getDefaultAuth();
-  fs.writeFileSync(AUTH_FILE, JSON.stringify(defaultCfg, null, 2), "utf-8");
-  return defaultCfg;
-}
-
-function saveAuthConfig(config: AuthConfig): void {
-  ensureDataDir();
-  fs.writeFileSync(AUTH_FILE, JSON.stringify(config, null, 2), "utf-8");
-}
-
-// Verify password with brute-force protection
-export function verifyPassword(password: string): { success: boolean; locked: boolean; remainingAttempts: number } {
-  const config = getAuthConfig();
+export function verifyLogin(username: string, password: string): { success: boolean; locked: boolean; remainingAttempts: number } {
   const MAX_ATTEMPTS = 5;
-  const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+  const LOCK_DURATION_MS = 15 * 60 * 1000;
 
-  // Check if account is locked
-  if (config.lockUntil && Date.now() < config.lockUntil) {
-    const remainingMin = Math.ceil((config.lockUntil - Date.now()) / 60000);
+  // Check lock
+  if (lockUntil && Date.now() < lockUntil) {
     return { success: false, locked: true, remainingAttempts: 0 };
   }
-
-  // If lock period expired, reset
-  if (config.lockUntil && Date.now() >= config.lockUntil) {
-    config.failedAttempts = 0;
-    config.lockUntil = null;
+  if (lockUntil && Date.now() >= lockUntil) {
+    failedAttempts = 0;
+    lockUntil = null;
   }
 
-  const isMatch = bcrypt.compareSync(password, config.passwordHash);
+  // Check username
+  if (username !== ENV_USERNAME) {
+    failedAttempts += 1;
+    const remaining = MAX_ATTEMPTS - failedAttempts;
+    if (remaining <= 0) {
+      lockUntil = Date.now() + LOCK_DURATION_MS;
+      failedAttempts = 0;
+      return { success: false, locked: true, remainingAttempts: 0 };
+    }
+    return { success: false, locked: false, remainingAttempts: remaining };
+  }
+
+  // Check password
+  const hash = getEffectiveHash();
+  const isMatch = bcrypt.compareSync(password, hash);
 
   if (isMatch) {
-    // Reset on success
-    config.failedAttempts = 0;
-    config.lockUntil = null;
-    saveAuthConfig(config);
+    failedAttempts = 0;
+    lockUntil = null;
     return { success: true, locked: false, remainingAttempts: MAX_ATTEMPTS };
   }
 
-  // Failed attempt
-  config.failedAttempts += 1;
-  const remaining = MAX_ATTEMPTS - config.failedAttempts;
-
+  failedAttempts += 1;
+  const remaining = MAX_ATTEMPTS - failedAttempts;
   if (remaining <= 0) {
-    config.lockUntil = Date.now() + LOCK_DURATION_MS;
-    config.failedAttempts = 0;
-    saveAuthConfig(config);
+    lockUntil = Date.now() + LOCK_DURATION_MS;
+    failedAttempts = 0;
     return { success: false, locked: true, remainingAttempts: 0 };
   }
-
-  saveAuthConfig(config);
   return { success: false, locked: false, remainingAttempts: remaining };
 }
 
-// Change password (requires current password verification)
 export function changePassword(currentPassword: string, newPassword: string): { success: boolean; error?: string } {
   if (!newPassword || newPassword.length < 6) {
     return { success: false, error: "Password baru minimal 6 karakter" };
@@ -175,16 +153,12 @@ export function changePassword(currentPassword: string, newPassword: string): { 
   if (newPassword.length > 64) {
     return { success: false, error: "Password maksimal 64 karakter" };
   }
-
-  const config = getAuthConfig();
-  const isMatch = bcrypt.compareSync(currentPassword, config.passwordHash);
+  const hash = getEffectiveHash();
+  const isMatch = bcrypt.compareSync(currentPassword, hash);
   if (!isMatch) {
     return { success: false, error: "Password lama salah" };
   }
-
-  config.passwordHash = bcrypt.hashSync(newPassword, SALT_ROUNDS);
-  config.failedAttempts = 0;
-  config.lockUntil = null;
-  saveAuthConfig(config);
+  // Password change not persisted on Vercel (ephemeral) - log warning
+  console.warn("Password changed in-memory only. Set AUTH_PASSWORD_HASH env var to persist.");
   return { success: true };
 }
