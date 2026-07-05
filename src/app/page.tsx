@@ -219,6 +219,11 @@ export default function Home() {
               <TrendingUp className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Tren</span>}
             </button>
+            <button onClick={() => { setShowUpload(true); setMobileSidebar(false); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-medium transition-colors text-gray-600 hover:bg-gray-50 border-r-2 border-transparent">
+              <Upload className="h-4 w-4 shrink-0 text-emerald-500" />
+              {sidebarOpen && <span>Upload KPI</span>}
+            </button>
             <div className="my-1 mx-3 border-t" />
             {UNIT_SIDEBAR.map((u) => {
               const unit = latestUnits.find((lu) => lu.code === u.code);
