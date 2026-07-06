@@ -73,13 +73,28 @@ export default function Home() {
   const selectedUnit = latestUnits.find((u) => u.code === selectedUnitCode);
   const prevUnit = prevSnapshot?.units.find((u) => u.code === selectedUnitCode);
 
-  const handleFiles = useCallback(async (files: FileList | File[]) => {
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Step 1: Pilih file (hanya tambah ke daftar, belum upload)
+  const addFiles = useCallback((files: FileList | File[]) => {
     const xlsxFiles = Array.from(files).filter((f) => f.name.endsWith(".xlsx"));
     if (xlsxFiles.length === 0) return;
-    const newStatuses = xlsxFiles.map((f) => ({ file: f, status: "parsing" as const }));
+    setPendingFiles((prev) => {
+      const existingNames = new Set(prev.map(f => f.name));
+      const newFiles = xlsxFiles.filter(f => !existingNames.has(f.name));
+      return [...prev, ...newFiles];
+    });
+  }, []);
+
+  // Step 2: Upload dengan tombol
+  const handleUpload = useCallback(async () => {
+    if (pendingFiles.length === 0 || isUploading) return;
+    setIsUploading(true);
+    const newStatuses = pendingFiles.map((f) => ({ file: f, status: "parsing" as const }));
     setFileStatuses((prev) => [...prev, ...newStatuses]);
     try {
-      const parsed = await parseMultipleFiles(xlsxFiles);
+      const parsed = await parseMultipleFiles(pendingFiles);
       const parsedFilenames = new Set(parsed.map((p) => p.filename));
       setFileStatuses((prev) =>
         prev.map((s) => {
@@ -87,7 +102,7 @@ export default function Home() {
           return parsedFilenames.has(s.file.name) ? { ...s, status: "success" as const } : { ...s, status: "error" as const, errorMsg: "Format tidak dikenali" };
         })
       );
-      if (parsed.length === 0) return;
+      if (parsed.length === 0) { setPendingFiles([]); setIsUploading(false); return; }
       const dateGroups: Record<string, { date: string; dateSort: string; units: KpiUnit[] }> = {};
       parsed.forEach((pf) => {
         if (!dateGroups[pf.date]) dateGroups[pf.date] = { date: pf.date, dateSort: pf.dateSort, units: [] };
@@ -98,8 +113,10 @@ export default function Home() {
         const res = await fetch("/api/snapshots", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ snapshot }) });
         if (res.ok) { const data = await res.json(); if (data.snapshots) { setSnapshots(data.snapshots); setSelectedSnapshotIndex(data.snapshots.length - 1); setIsServerMode(true); } }
       }
+      setPendingFiles([]);
     } catch { setFileStatuses((prev) => prev.map((s) => s.status === "parsing" ? { ...s, status: "error" as const, errorMsg: "Gagal memproses" } : s)); }
-  }, []);
+    setIsUploading(false);
+  }, [pendingFiles, isUploading]);
 
   const handleDeleteSnapshot = async () => {
     if (!deleteDate) return;
@@ -173,26 +190,49 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             <div className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${isDragging ? "border-emerald-500 bg-emerald-50" : "border-gray-300 hover:border-emerald-400"}`}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-              onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }} onClick={() => document.getElementById("file-input")?.click()}>
-              <input id="file-input" type="file" accept=".xlsx" multiple className="hidden" onChange={(e) => { if (e.target.files) handleFiles(e.target.files); e.target.value = ""; }} />
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }} onClick={() => document.getElementById("file-input")?.click()}>
+              <input id="file-input" type="file" accept=".xlsx" multiple className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
               <Upload className={`mx-auto h-6 w-6 mb-1 ${isDragging ? "text-emerald-500" : "text-muted-foreground"}`} />
               <p className="text-xs font-medium">{isDragging ? "Lepaskan file di sini..." : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Mendukung upload 7 file sekaligus · Data tersimpan di server</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Mendukung upload 7 file sekaligus</p>
             </div>
+            {pendingFiles.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="max-h-24 overflow-y-auto space-y-1">
+                  {pendingFiles.map((f, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-50 text-[11px]">
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-[9px] text-gray-400">{(f.size / 1024).toFixed(0)} KB</span>
+                      <button onClick={() => setPendingFiles(prev => prev.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-muted-foreground">{pendingFiles.length} file dipilih</p>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setPendingFiles([])}>Batal</Button>
+                    <Button size="sm" className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleUpload} disabled={isUploading}>
+                      {isUploading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Mengupload...</> : <><Upload className="h-3 w-3 mr-1" /> Upload</>}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
             {fileStatuses.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-muted-foreground">{fileStatuses.length} file</p>
+                  <p className="text-[10px] font-medium text-gray-600">Riwayat Upload</p>
                   <Button variant="ghost" size="sm" className="h-5 text-[10px]" onClick={() => setFileStatuses([])}><X className="h-2.5 w-2.5 mr-0.5" /> Hapus</Button>
                 </div>
-                <div className="max-h-24 overflow-y-auto space-y-1">
+                <div className="max-h-20 overflow-y-auto space-y-1">
                   {fileStatuses.map((fs, idx) => (
                     <div key={idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-50 text-[11px]">
                       <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       <span className="flex-1 truncate">{fs.file.name}</span>
                       {fs.status === "parsing" && <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />}
-                      {fs.status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
-                      {fs.status === "error" && <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" title={fs.errorMsg} />}
+                      {fs.status === "success" && <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-emerald-600 text-[10px]">Berhasil</span></>}
+                      {fs.status === "error" && <><AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /><span className="text-red-500 text-[10px]">Gagal</span></>}
                     </div>
                   ))}
                 </div>
