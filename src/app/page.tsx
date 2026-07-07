@@ -1,24 +1,58 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
-  Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, Loader2,
-  ChevronDown, ChevronUp, Activity, CalendarDays, LogOut, Trash2,
-  Settings, Key, TrendingUp, BarChart3, Menu, XIcon
+  Upload,
+  FileSpreadsheet,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ChevronDown,
+  Activity,
+  CalendarDays,
+  LogOut,
+  Trash2,
+  Settings,
+  Key,
+  TrendingUp,
+  BarChart3,
+  Building2,
+  ChevronRight,
+  ArrowLeftRight,
+  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { UnitDetailTable } from "@/components/dashboard/unit-detail-table";
 import { TrendCharts } from "@/components/dashboard/trend-charts";
+import { CompareCalendar } from "@/components/dashboard/compare-calendar";
 import { defaultSnapshot } from "@/lib/default-data";
 import { parseMultipleFiles } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 
-const UNIT_SIDEBAR = [
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const UNIT_LIST = [
   { code: "14200_UPC", label: "UPC TEGALBOTO", short: "UPC Tegalboto" },
   { code: "14200_CP", label: "CP TEGALBOTO", short: "CP Tegalboto" },
   { code: "14201", label: "BASUKI RAHMAD", short: "Basuki Rahmad" },
@@ -28,211 +62,795 @@ const UNIT_SIDEBAR = [
   { code: "17506", label: "COLO SUMBERJATI", short: "Colo Sumberjati" },
 ];
 
+const STORAGE_KEY = "kpi_snapshots";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getKpiColor(totalKpi: number): string {
+  if (totalKpi >= 85) return "#059669";
+  if (totalKpi >= 70) return "#d97706";
+  if (totalKpi >= 55) return "#ea580c";
+  return "#dc2626";
+}
+
+function getKpiTextClass(totalKpi: number): string {
+  if (totalKpi >= 85) return "text-emerald-600";
+  if (totalKpi >= 70) return "text-amber-600";
+  if (totalKpi >= 55) return "text-orange-600";
+  return "text-red-600";
+}
+
+function getKpiBgClass(totalKpi: number): string {
+  if (totalKpi >= 85) return "bg-emerald-100 text-emerald-800";
+  if (totalKpi >= 70) return "bg-amber-100 text-amber-800";
+  if (totalKpi >= 55) return "bg-orange-100 text-orange-800";
+  return "bg-red-100 text-red-800";
+}
+
+function mergeSnapshots(
+  existing: SnapshotData[],
+  newSnapshot: SnapshotData
+): SnapshotData[] {
+  const arr = [...existing];
+  const idx = arr.findIndex((s) => s.dateSort === newSnapshot.dateSort);
+  if (idx >= 0) {
+    const updatedUnits = [...arr[idx].units];
+    for (const unit of newSnapshot.units) {
+      const uIdx = updatedUnits.findIndex((u) => u.code === unit.code);
+      if (uIdx >= 0) updatedUnits[uIdx] = unit;
+      else updatedUnits.push(unit);
+    }
+    arr[idx] = { ...arr[idx], units: updatedUnits };
+  } else {
+    arr.push(newSnapshot);
+  }
+  arr.sort((a, b) => a.dateSort.localeCompare(b.dateSort));
+  return arr;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function Home() {
+  // ── Core state ──
   const [snapshots, setSnapshots] = useState<SnapshotData[]>([defaultSnapshot]);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
   const [selectedUnitCode, setSelectedUnitCode] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<"kpi" | "trend">("kpi");
-  const [showUpload, setShowUpload] = useState(false);
-  const [fileStatuses, setFileStatuses] = useState<{ file: File; status: "pending" | "parsing" | "success" | "error"; errorMsg?: string }[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [isServerMode, setIsServerMode] = useState(false);
+
+  // ── Upload state ──
+  const [showUpload, setShowUpload] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileStatuses, setFileStatuses] = useState<
+    {
+      file: File;
+      status: "pending" | "parsing" | "success" | "error" | "update";
+      errorMsg?: string;
+    }[]
+  >([]);
+
+  // ── Compare state ──
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareDateSort, setCompareDateSort] = useState<string | null>(null);
+  const [showCompareCalendar, setShowCompareCalendar] = useState(false);
+
+  // ── UI state ──
+  const [showUnitPopover, setShowUnitPopover] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteDate, setDeleteDate] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileSidebar, setMobileSidebar] = useState(false);
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
 
-  useEffect(() => { fetchSnapshots(); }, []);
+  // ── Derived data ──
+  const currentSnapshot = snapshots[selectedSnapshotIndex] ?? snapshots[0];
+  const prevSnapshot =
+    selectedSnapshotIndex > 0 ? snapshots[selectedSnapshotIndex - 1] : undefined;
+  const compareSnapshot = compareDateSort
+    ? snapshots.find((s) => s.dateSort === compareDateSort)
+    : undefined;
+  const effectivePrevSnapshot = compareMode
+    ? compareSnapshot
+    : prevSnapshot;
 
-  const fetchSnapshots = async () => {
-    try {
-      const res = await fetch("/api/snapshots");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.snapshots && data.snapshots.length > 0) {
-          setSnapshots(data.snapshots);
-          setSelectedSnapshotIndex(data.snapshots.length - 1);
-          setIsServerMode(true);
-        }
-      }
-    } catch (e) { console.error("Failed to fetch snapshots:", e); }
-  };
-
-  const currentSnapshot = snapshots[selectedSnapshotIndex];
-  const prevSnapshot = selectedSnapshotIndex > 0 ? snapshots[selectedSnapshotIndex - 1] : undefined;
   const latestUnits: KpiUnit[] = currentSnapshot?.units ?? [];
 
   useEffect(() => {
-    if (!selectedUnitCode && latestUnits.length > 0) setSelectedUnitCode(latestUnits[0].code);
+    if (!selectedUnitCode && latestUnits.length > 0) {
+      setSelectedUnitCode(latestUnits[0].code);
+    }
   }, [latestUnits, selectedUnitCode]);
 
   const selectedUnit = latestUnits.find((u) => u.code === selectedUnitCode);
-  const prevUnit = prevSnapshot?.units.find((u) => u.code === selectedUnitCode);
+  const effectivePrevUnit = effectivePrevSnapshot?.units.find(
+    (u) => u.code === selectedUnitCode
+  );
 
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const availableDates = useMemo(
+    () => snapshots.map((s) => s.dateSort),
+    [snapshots]
+  );
 
-  // Step 1: Pilih file (hanya tambah ke daftar, belum upload)
+  const existingDateSorts = useMemo(
+    () => new Set(snapshots.map((s) => s.dateSort)),
+    [snapshots]
+  );
+
+  // ── localStorage persistence ──
+  useEffect(() => {
+    const init = async () => {
+      // Try localStorage first
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSnapshots(parsed);
+            setSelectedSnapshotIndex(parsed.length - 1);
+            setIsServerMode(true);
+            return; // Don't fetch from server if localStorage has data
+          }
+        }
+      } catch (e) {
+        console.error("localStorage read error:", e);
+      }
+
+      // Fallback: try server
+      try {
+        const res = await fetch("/api/snapshots");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.snapshots && data.snapshots.length > 0) {
+            setSnapshots(data.snapshots);
+            setSelectedSnapshotIndex(data.snapshots.length - 1);
+            setIsServerMode(true);
+            // Save to localStorage for future
+            try {
+              localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(data.snapshots)
+              );
+            } catch (e) {
+              console.error("localStorage save error:", e);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch snapshots:", e);
+      }
+    };
+    init();
+  }, []);
+
+  // Save to localStorage whenever snapshots change
+  useEffect(() => {
+    if (isServerMode && snapshots.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
+      } catch (e) {
+        console.error("localStorage save error:", e);
+      }
+    }
+  }, [snapshots, isServerMode]);
+
+  // ── File handling ──
   const addFiles = useCallback((files: FileList | File[]) => {
-    const xlsxFiles = Array.from(files).filter((f) => f.name.endsWith(".xlsx"));
+    const xlsxFiles = Array.from(files).filter((f) =>
+      f.name.endsWith(".xlsx")
+    );
     if (xlsxFiles.length === 0) return;
     setPendingFiles((prev) => {
-      const existingNames = new Set(prev.map(f => f.name));
-      const newFiles = xlsxFiles.filter(f => !existingNames.has(f.name));
+      const existingNames = new Set(prev.map((f) => f.name));
+      const newFiles = xlsxFiles.filter((f) => !existingNames.has(f.name));
       return [...prev, ...newFiles];
     });
   }, []);
 
-  // Step 2: Upload dengan tombol
   const handleUpload = useCallback(async () => {
     if (pendingFiles.length === 0 || isUploading) return;
     setIsUploading(true);
-    const newStatuses = pendingFiles.map((f) => ({ file: f, status: "parsing" as const }));
+    const newStatuses = pendingFiles.map((f) => ({
+      file: f,
+      status: "parsing" as const,
+    }));
     setFileStatuses((prev) => [...prev, ...newStatuses]);
+
     try {
       const parsed = await parseMultipleFiles(pendingFiles);
       const parsedFilenames = new Set(parsed.map((p) => p.filename));
+
+      // Update statuses based on parse result
       setFileStatuses((prev) =>
         prev.map((s) => {
           if (s.status !== "parsing") return s;
-          return parsedFilenames.has(s.file.name) ? { ...s, status: "success" as const } : { ...s, status: "error" as const, errorMsg: "Format tidak dikenali" };
+          if (parsedFilenames.has(s.file.name)) {
+            // Check if this is an update or new
+            const parsedFile = parsed.find((p) => p.filename === s.file.name);
+            const isUpdate = parsedFile
+              ? existingDateSorts.has(parsedFile.dateSort)
+              : false;
+            return {
+              ...s,
+              status: isUpdate ? ("update" as const) : ("success" as const),
+            };
+          }
+          return {
+            ...s,
+            status: "error" as const,
+            errorMsg: "Format tidak dikenali",
+          };
         })
       );
-      if (parsed.length === 0) { setPendingFiles([]); setIsUploading(false); return; }
-      const dateGroups: Record<string, { date: string; dateSort: string; units: KpiUnit[] }> = {};
-      parsed.forEach((pf) => {
-        if (!dateGroups[pf.date]) dateGroups[pf.date] = { date: pf.date, dateSort: pf.dateSort, units: [] };
-        dateGroups[pf.date].units.push(pf.unit);
-      });
-      for (const group of Object.values(dateGroups)) {
-        const snapshot: SnapshotData = { date: group.date, dateSort: group.dateSort, units: group.units };
-        const res = await fetch("/api/snapshots", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ snapshot }) });
-        if (res.ok) { const data = await res.json(); if (data.snapshots) { setSnapshots(data.snapshots); setSelectedSnapshotIndex(data.snapshots.length - 1); setIsServerMode(true); } }
-      }
-      setPendingFiles([]);
-    } catch { setFileStatuses((prev) => prev.map((s) => s.status === "parsing" ? { ...s, status: "error" as const, errorMsg: "Gagal memproses" } : s)); }
-    setIsUploading(false);
-  }, [pendingFiles, isUploading]);
 
+      if (parsed.length === 0) {
+        setPendingFiles([]);
+        setIsUploading(false);
+        return;
+      }
+
+      // Group parsed files by date
+      const dateGroups: Record<
+        string,
+        { date: string; dateSort: string; units: KpiUnit[] }
+      > = {};
+      parsed.forEach((pf) => {
+        if (!dateGroups[pf.dateSort]) {
+          dateGroups[pf.dateSort] = {
+            date: pf.date,
+            dateSort: pf.dateSort,
+            units: [],
+          };
+        }
+        dateGroups[pf.dateSort].units.push(pf.unit);
+      });
+
+      // Client-side merge
+      let updatedSnapshots = [...snapshots];
+      for (const group of Object.values(dateGroups)) {
+        const snapshot: SnapshotData = {
+          date: group.date,
+          dateSort: group.dateSort,
+          units: group.units,
+        };
+        updatedSnapshots = mergeSnapshots(updatedSnapshots, snapshot);
+      }
+
+      setSnapshots(updatedSnapshots);
+      setSelectedSnapshotIndex(updatedSnapshots.length - 1);
+      setIsServerMode(true);
+      setPendingFiles([]);
+
+      // Best-effort POST to server (may fail silently)
+      try {
+        for (const group of Object.values(dateGroups)) {
+          const snapshot: SnapshotData = {
+            date: group.date,
+            dateSort: group.dateSort,
+            units: group.units,
+          };
+          await fetch("/api/snapshots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ snapshot }),
+          });
+        }
+      } catch (e) {
+        console.error("Server upload failed (data saved locally):", e);
+      }
+    } catch {
+      setFileStatuses((prev) =>
+        prev.map((s) =>
+          s.status === "parsing"
+            ? { ...s, status: "error" as const, errorMsg: "Gagal memproses" }
+            : s
+        )
+      );
+    }
+
+    setIsUploading(false);
+  }, [pendingFiles, isUploading, snapshots, existingDateSorts]);
+
+  // ── Delete handler ──
   const handleDeleteSnapshot = async () => {
     if (!deleteDate) return;
+    const updated = snapshots.filter((s) => s.dateSort !== deleteDate);
+    setSnapshots(updated.length > 0 ? updated : [defaultSnapshot]);
+    setSelectedSnapshotIndex(
+      Math.min(selectedSnapshotIndex, Math.max(0, updated.length - 1))
+    );
+    if (updated.length === 0) {
+      setIsServerMode(false);
+      setSelectedSnapshotIndex(0);
+    }
+
+    // Remove from localStorage
     try {
-      const res = await fetch(`/api/snapshots?date=${encodeURIComponent(deleteDate)}`, { method: "DELETE" });
-      if (res.ok) { const data = await res.json(); setSnapshots(data.snapshots); if (selectedSnapshotIndex >= data.snapshots.length) setSelectedSnapshotIndex(Math.max(0, data.snapshots.length - 1)); setShowDeleteConfirm(false); }
-    } catch (e) { console.error("Delete failed:", e); }
+      if (updated.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error("localStorage delete error:", e);
+    }
+
+    // Best-effort server delete
+    try {
+      await fetch(`/api/snapshots?date=${encodeURIComponent(deleteDate)}`, {
+        method: "DELETE",
+      });
+    } catch (e) {
+      console.error("Server delete failed (data removed locally):", e);
+    }
+
+    setShowDeleteConfirm(false);
+    if (compareDateSort === deleteDate) {
+      setCompareDateSort(null);
+    }
   };
 
-  const handleLogout = async () => { await fetch("/api/auth", { method: "DELETE" }); window.location.href = "/login"; };
+  // ── Auth handlers ──
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
+    window.location.href = "/login";
+  };
 
   const handleChangePassword = async () => {
     if (!currentPwd || !newPwd) return;
-    const res = await fetch("/api/auth", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }) });
+    const res = await fetch("/api/auth", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+    });
     const data = await res.json();
-    if (res.ok) { setPwdMsg("Password berhasil diubah!"); setCurrentPwd(""); setNewPwd(""); setTimeout(() => { setPwdMsg(""); setShowSettings(false); }, 2000); }
-    else { setPwdMsg(data.error || "Gagal mengubah password"); }
+    if (res.ok) {
+      setPwdMsg("Password berhasil diubah!");
+      setCurrentPwd("");
+      setNewPwd("");
+      setTimeout(() => {
+        setPwdMsg("");
+        setShowSettings(false);
+      }, 2000);
+    } else {
+      setPwdMsg(data.error || "Gagal mengubah password");
+    }
   };
 
+  // ── KPI delta for summary bar ──
+  const kpiDelta = useMemo(() => {
+    if (!selectedUnit || !effectivePrevUnit) return 0;
+    return parseFloat(
+      (selectedUnit.total_kpi - effectivePrevUnit.total_kpi).toFixed(2)
+    );
+  }, [selectedUnit, effectivePrevUnit]);
+
+  const compareLabel = compareMode
+    ? compareSnapshot?.date
+    : undefined;
+
+  // ── Period change handler ──
+  const handlePeriodChange = useCallback(
+    (val: string) => {
+      setSelectedSnapshotIndex(Number(val));
+    },
+    []
+  );
+
+  // ── Render helpers ──
+  const getUnitLabel = (code: string) =>
+    UNIT_LIST.find((u) => u.code === code)?.label || code;
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-      {/* TOP BAR */}
-      <header className="bg-white border-b px-4 py-2 flex items-center justify-between shrink-0 z-30 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button className="lg:hidden p-1 rounded hover:bg-gray-100" onClick={() => setMobileSidebar(!mobileSidebar)}>
-            {mobileSidebar ? <XIcon className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-          <button className="hidden lg:block p-1 rounded hover:bg-gray-100" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <Menu className="h-4 w-4 text-gray-500" />
-          </button>
-          <Activity className="h-4 w-4 text-emerald-600" />
-          <h1 className="text-sm font-black tracking-tight text-gray-800">MONEV KPI TEGALBOTO 2026</h1>
-          {isServerMode && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Online</Badge>}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-            <Select value={String(selectedSnapshotIndex)} onValueChange={(v) => setSelectedSnapshotIndex(Number(v))}>
-              <SelectTrigger className="w-[150px] h-7 text-[11px]"><SelectValue placeholder="Pilih Periode" /></SelectTrigger>
-              <SelectContent>
-                {snapshots.map((s, idx) => (
-                  <SelectItem key={s.dateSort} value={String(idx)} className="text-[11px]">
-                    {s.date} {idx === snapshots.length - 1 && "(Terbaru)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="min-h-screen flex flex-col bg-[#f0f4f8]">
+      {/* ═══ GLASSMORPHISM HEADER ═══ */}
+      <header className="glass-header sticky top-0 z-50 px-3 md:px-5 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          {/* Left: Logo + KPI Unit Popover */}
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <Activity className="h-4 w-4 text-emerald-600 shrink-0 hidden sm:block" />
+            <h1 className="text-[11px] md:text-xs font-black tracking-tight bg-gradient-to-r from-emerald-700 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">
+              MONEV KPI / TEGALBOTO 2026
+            </h1>
+            {isServerMode && (
+              <Badge
+                variant="outline"
+                className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 hidden sm:inline-flex px-1.5 py-0"
+              >
+                Online
+              </Badge>
+            )}
+
+            {/* KPI Unit Dropdown (Popover) */}
+            <Popover open={showUnitPopover} onOpenChange={setShowUnitPopover}>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/60 transition-colors text-xs font-medium text-gray-700 border border-gray-200/60 bg-white/40">
+                  <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="max-w-[100px] md:max-w-[140px] truncate">
+                    {selectedUnit
+                      ? UNIT_LIST.find((u) => u.code === selectedUnit.code)
+                          ?.short || selectedUnit.name
+                      : "Pilih Unit"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-[260px] p-2"
+                align="start"
+                sideOffset={6}
+              >
+                <div className="space-y-0.5">
+                  {UNIT_LIST.map((u) => {
+                    const unit = latestUnits.find((lu) => lu.code === u.code);
+                    const hasData = !!unit;
+                    const isActive = selectedUnitCode === u.code;
+                    return (
+                      <button
+                        key={u.code}
+                        onClick={() => {
+                          if (hasData) {
+                            setSelectedUnitCode(u.code);
+                            setActiveView("kpi");
+                            setShowUnitPopover(false);
+                          }
+                        }}
+                        disabled={!hasData}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                          isActive
+                            ? "bg-emerald-50 text-emerald-700"
+                            : hasData
+                            ? "text-gray-700 hover:bg-gray-50"
+                            : "text-gray-300 cursor-default"
+                        }`}
+                      >
+                        <div
+                          className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
+                          style={{
+                            backgroundColor: hasData
+                              ? getKpiColor(unit!.total_kpi)
+                              : "#d1d5db",
+                            ringColor: hasData
+                              ? getKpiColor(unit!.total_kpi)
+                              : "#e5e7eb",
+                          }}
+                        />
+                        <div className="flex-1 text-left min-w-0">
+                          <div className="truncate">{u.short}</div>
+                        </div>
+                        {hasData && (
+                          <span
+                            className={`text-[10px] font-bold tabular-nums ${getKpiTextClass(unit!.total_kpi)}`}
+                          >
+                            {unit!.total_kpi.toFixed(1)}
+                          </span>
+                        )}
+                        {isActive && (
+                          <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
-          {isServerMode && currentSnapshot && (
-            <Button variant="ghost" size="sm" className="h-7 text-[11px] text-red-500 hover:text-red-700 hover:bg-red-50 gap-1"
-              onClick={() => { setDeleteDate(currentSnapshot.dateSort); setShowDeleteConfirm(true); }} title="Hapus periode ini">
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          )}
-          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5" onClick={() => setShowUpload(!showUpload)}>
-            <Upload className="h-3 w-3" /><span className="hidden sm:inline">Upload KPI</span>
-            {showUpload ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1" onClick={() => { setShowSettings(true); setPwdMsg(""); setCurrentPwd(""); setNewPwd(""); }} title="Pengaturan">
-            <Settings className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-[11px] gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleLogout} title="Logout">
-            <LogOut className="h-3.5 w-3.5" />
-          </Button>
+
+          {/* Right: Controls */}
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {/* View Toggle (hidden on mobile, shown in bottom nav) */}
+            <div className="hidden md:flex items-center bg-gray-100/80 rounded-lg p-0.5">
+              <button
+                onClick={() => setActiveView("kpi")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  activeView === "kpi"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <BarChart3 className="h-3 w-3" />
+                KPI
+              </button>
+              <button
+                onClick={() => setActiveView("trend")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  activeView === "trend"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <TrendingUp className="h-3 w-3" />
+                Tren
+              </button>
+            </div>
+
+            {/* Period Selector */}
+            <div className="flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+              <Select
+                value={String(selectedSnapshotIndex)}
+                onValueChange={handlePeriodChange}
+              >
+                <SelectTrigger className="w-[120px] md:w-[150px] h-7 text-[11px] bg-white/40 border-gray-200/60">
+                  <SelectValue placeholder="Pilih Periode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {snapshots.map((s, idx) => (
+                    <SelectItem
+                      key={s.dateSort}
+                      value={String(idx)}
+                      className="text-[11px]"
+                    >
+                      {s.date}
+                      {idx === snapshots.length - 1 && " (Terbaru)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Compare Button (Banding) */}
+            {isServerMode && snapshots.length > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setCompareMode(!compareMode);
+                    if (compareMode) {
+                      setCompareDateSort(null);
+                      setShowCompareCalendar(false);
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                    compareMode
+                      ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                      : "text-gray-500 hover:bg-white/60 border border-transparent"
+                  }`}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  <span className="hidden sm:inline">Banding</span>
+                </button>
+
+                {compareMode && (
+                  <Popover
+                    open={showCompareCalendar}
+                    onOpenChange={setShowCompareCalendar}
+                  >
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-white/60 border border-gray-200/60 bg-white/40 transition-colors">
+                        <CalendarIcon className="h-3 w-3 text-emerald-600" />
+                        <span className="hidden sm:inline max-w-[80px] truncate">
+                          {compareSnapshot?.date || "Pilih tanggal"}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-auto p-0"
+                      align="end"
+                      sideOffset={6}
+                    >
+                      <CompareCalendar
+                        availableDates={availableDates.filter(
+                          (d) => d !== currentSnapshot?.dateSort
+                        )}
+                        selectedDate={compareDateSort ?? undefined}
+                        onSelect={(dateSort) => {
+                          setCompareDateSort(dateSort);
+                        }}
+                        onClose={() => setShowCompareCalendar(false)}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+            )}
+
+            {/* Upload Button */}
+            <button
+              onClick={() => setShowUpload(!showUpload)}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                showUpload
+                  ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                  : "text-gray-500 hover:bg-white/60 border border-transparent"
+              }`}
+            >
+              <Upload className="h-3 w-3" />
+              <span className="hidden md:inline">Upload</span>
+            </button>
+
+            {/* Settings */}
+            <button
+              onClick={() => {
+                setShowSettings(true);
+                setPwdMsg("");
+                setCurrentPwd("");
+                setNewPwd("");
+              }}
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-white/60 transition-colors"
+              title="Pengaturan"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* UPLOAD PANEL */}
+      {/* ═══ UPLOAD PANEL ═══ */}
       {showUpload && (
-        <div className="bg-white border-b px-4 py-3 shrink-0 z-20">
+        <div className="bg-white border-b px-3 md:px-5 py-3 animate-fade-up z-40">
           <div className="max-w-2xl mx-auto">
-            <div className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${isDragging ? "border-emerald-500 bg-emerald-50" : "border-gray-300 hover:border-emerald-400"}`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-              onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }} onClick={() => document.getElementById("file-input")?.click()}>
-              <input id="file-input" type="file" accept=".xlsx" multiple className="hidden" onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
-              <Upload className={`mx-auto h-6 w-6 mb-1 ${isDragging ? "text-emerald-500" : "text-muted-foreground"}`} />
-              <p className="text-xs font-medium">{isDragging ? "Lepaskan file di sini..." : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Mendukung upload 7 file sekaligus</p>
+            <div
+              className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer ${
+                isDragging
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-gray-300 hover:border-emerald-400"
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                addFiles(e.dataTransfer.files);
+              }}
+              onClick={() => document.getElementById("file-input")?.click()}
+            >
+              <input
+                id="file-input"
+                type="file"
+                accept=".xlsx"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <Upload
+                className={`mx-auto h-6 w-6 mb-1 ${
+                  isDragging ? "text-emerald-500" : "text-muted-foreground"
+                }`}
+              />
+              <p className="text-xs font-medium">
+                {isDragging
+                  ? "Lepaskan file di sini..."
+                  : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Mendukung upload 7 file sekaligus
+              </p>
             </div>
+
             {pendingFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="max-h-24 overflow-y-auto space-y-1">
                   {pendingFiles.map((f, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-50 text-[11px]">
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+                    >
                       <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                       <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-[9px] text-gray-400">{(f.size / 1024).toFixed(0)} KB</span>
-                      <button onClick={() => setPendingFiles(prev => prev.filter((_, i) => i !== idx))} className="text-gray-400 hover:text-red-500"><X className="h-3 w-3" /></button>
+                      <span className="text-[9px] text-gray-400">
+                        {(f.size / 1024).toFixed(0)} KB
+                      </span>
+                      <button
+                        onClick={() =>
+                          setPendingFiles((prev) =>
+                            prev.filter((_, i) => i !== idx)
+                          )
+                        }
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] text-muted-foreground">{pendingFiles.length} file dipilih</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {pendingFiles.length} file dipilih
+                  </p>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setPendingFiles([])}>Batal</Button>
-                    <Button size="sm" className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleUpload} disabled={isUploading}>
-                      {isUploading ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Mengupload...</> : <><Upload className="h-3 w-3 mr-1" /> Upload</>}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px]"
+                      onClick={() => setPendingFiles([])}
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={handleUpload}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
+                          Mengupload...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3 w-3 mr-1" /> Upload
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
               </div>
             )}
+
             {fileStatuses.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-medium text-gray-600">Riwayat Upload</p>
-                  <Button variant="ghost" size="sm" className="h-5 text-[10px]" onClick={() => setFileStatuses([])}><X className="h-2.5 w-2.5 mr-0.5" /> Hapus</Button>
+                  <p className="text-[10px] font-medium text-gray-600">
+                    Riwayat Upload
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-[10px]"
+                    onClick={() => setFileStatuses([])}
+                  >
+                    <X className="h-2.5 w-2.5 mr-0.5" /> Hapus
+                  </Button>
                 </div>
                 <div className="max-h-20 overflow-y-auto space-y-1">
                   {fileStatuses.map((fs, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-50 text-[11px]">
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+                    >
                       <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       <span className="flex-1 truncate">{fs.file.name}</span>
-                      {fs.status === "parsing" && <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />}
-                      {fs.status === "success" && <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-emerald-600 text-[10px]">Berhasil</span></>}
-                      {fs.status === "error" && <><AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" /><span className="text-red-500 text-[10px]">Gagal</span></>}
+                      {fs.status === "parsing" && (
+                        <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />
+                      )}
+                      {fs.status === "success" && (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                          <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-0 px-1.5 py-0">
+                            Baru
+                          </Badge>
+                        </>
+                      )}
+                      {fs.status === "update" && (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                          <Badge className="text-[9px] bg-blue-100 text-blue-700 border-0 px-1.5 py-0">
+                            Update
+                          </Badge>
+                        </>
+                      )}
+                      {fs.status === "error" && (
+                        <>
+                          <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                          <span className="text-red-500 text-[10px]">
+                            Gagal
+                          </span>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -242,97 +860,246 @@ export default function Home() {
         </div>
       )}
 
-      {/* BODY: SIDEBAR + CONTENT */}
-      <div className="flex flex-1 overflow-hidden">
-        {mobileSidebar && <div className="fixed inset-0 bg-black/30 z-20 lg:hidden" onClick={() => setMobileSidebar(false)} />}
-
-        <aside className={`shrink-0 bg-white border-r flex flex-col z-20 transition-all duration-200 ${sidebarOpen ? "w-[220px]" : "w-0 lg:w-[52px]"} ${mobileSidebar ? "fixed inset-y-0 left-0 top-[45px] w-[220px]" : "hidden lg:flex"} ${!mobileSidebar && !sidebarOpen ? "lg:flex" : ""} overflow-hidden`}>
-          <div className="px-3 py-3 border-b bg-gray-50/80">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-emerald-600 shrink-0" />
-              {sidebarOpen && <h2 className="text-xs font-black tracking-wider text-gray-700">KPI</h2>}
+      {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
+      {selectedUnit && activeView === "kpi" && (
+        <div className="sticky top-[53px] z-30 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-3 h-3 rounded-full shrink-0"
+                style={{
+                  backgroundColor: getKpiColor(selectedUnit.total_kpi),
+                }}
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">
+                  {getUnitLabel(selectedUnit.code)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {selectedUnit.components.length} komponen KPI
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="text-right">
+                <p
+                  className={`text-xl font-black tabular-nums ${getKpiTextClass(selectedUnit.total_kpi)}`}
+                >
+                  {selectedUnit.total_kpi.toFixed(2)}
+                </p>
+              </div>
+              {effectivePrevUnit && (
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    vs {compareLabel || prevSnapshot?.date || "kemarin"}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] font-bold px-1.5 py-0 border-0 ${
+                      kpiDelta > 0
+                        ? "bg-emerald-100 text-emerald-700"
+                        : kpiDelta < 0
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {kpiDelta > 0 ? "+" : ""}
+                    {kpiDelta.toFixed(2)}
+                  </Badge>
+                </div>
+              )}
+              {isServerMode && currentSnapshot && (
+                <button
+                  onClick={() => {
+                    setDeleteDate(currentSnapshot.dateSort);
+                    setShowDeleteConfirm(true);
+                  }}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  title="Hapus periode ini"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
-          <nav className="flex-1 overflow-y-auto py-1">
-            <button onClick={() => { setActiveView("trend"); setMobileSidebar(false); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-medium transition-colors ${activeView === "trend" ? "bg-emerald-50 text-emerald-700 border-r-2 border-emerald-600" : "text-gray-600 hover:bg-gray-50 border-r-2 border-transparent"}`}>
-              <TrendingUp className="h-4 w-4 shrink-0" />
-              {sidebarOpen && <span>Tren</span>}
-            </button>
-            <button onClick={() => { setShowUpload(true); setMobileSidebar(false); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-medium transition-colors text-gray-600 hover:bg-gray-50 border-r-2 border-transparent">
-              <Upload className="h-4 w-4 shrink-0 text-emerald-500" />
-              {sidebarOpen && <span>Upload KPI</span>}
-            </button>
-            <div className="my-1 mx-3 border-t" />
-            {UNIT_SIDEBAR.map((u) => {
-              const unit = latestUnits.find((lu) => lu.code === u.code);
-              const isActive = activeView === "kpi" && selectedUnitCode === u.code;
-              const hasData = !!unit;
-              return (
-                <button key={u.code} onClick={() => { setSelectedUnitCode(u.code); setActiveView("kpi"); setMobileSidebar(false); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-medium transition-colors ${isActive ? "bg-emerald-50 text-emerald-700 border-r-2 border-emerald-600" : hasData ? "text-gray-600 hover:bg-gray-50 border-r-2 border-transparent" : "text-gray-300 border-r-2 border-transparent cursor-default"}`}
-                  disabled={!hasData}>
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hasData ? (unit!.total_kpi >= 85 ? "#059669" : unit!.total_kpi >= 70 ? "#d97706" : unit!.total_kpi >= 55 ? "#ea580c" : "#dc2626") : "#d1d5db" }} />
-                  {sidebarOpen && <div className="flex-1 text-left"><div className="truncate">{u.short}</div></div>}
-                  {sidebarOpen && hasData && (
-                    <span className={`text-[10px] font-bold tabular-nums ${unit!.total_kpi >= 85 ? "text-emerald-600" : unit!.total_kpi >= 70 ? "text-amber-600" : unit!.total_kpi >= 55 ? "text-orange-600" : "text-red-600"}`}>
-                      {unit!.total_kpi.toFixed(1)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-          {sidebarOpen && <div className="px-3 py-2 border-t bg-gray-50/50"><p className="text-[9px] text-gray-400">{latestUnits.length} unit · {snapshots.length} periode</p></div>}
-        </aside>
+        </div>
+      )}
 
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+      {/* ═══ MAIN CONTENT ═══ */}
+      <main className="flex-1 p-3 md:p-5 pb-24 md:pb-5">
+        <div className="max-w-7xl mx-auto animate-fade-up">
           {activeView === "trend" ? (
-            <TrendCharts snapshots={snapshots} />
+            <TrendCharts
+              snapshots={snapshots}
+              compareMode={compareMode}
+              compareDateSort={compareDateSort}
+              selectedIndex={selectedSnapshotIndex}
+            />
           ) : selectedUnit ? (
-            <UnitDetailTable unit={selectedUnit} unitLabel={UNIT_SIDEBAR.find(u => u.code === selectedUnit.code)?.label || selectedUnit.name} prevUnit={prevUnit} />
+            <UnitDetailTable
+              unit={selectedUnit}
+              unitLabel={getUnitLabel(selectedUnit.code)}
+              prevUnit={effectivePrevUnit}
+              compareLabel={compareLabel}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
-              <p className="text-sm">Pilih unit di sidebar untuk melihat KPI</p>
+            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+              <Building2 className="h-12 w-12 mb-3 opacity-30" />
+              <p className="text-sm font-medium">Pilih outlet dari dropdown KPI</p>
+              <p className="text-xs mt-1 text-gray-300">
+                Klik dropdown unit di header untuk melihat detail KPI
+              </p>
             </div>
           )}
-        </main>
-      </div>
+        </div>
+      </main>
 
-      {/* SETTINGS DIALOG */}
+      {/* ═══ MOBILE BOTTOM NAV ═══ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t safe-area-inset-bottom">
+        <div className="flex items-center justify-around py-1.5 px-2">
+          <button
+            onClick={() => setActiveView("kpi")}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              activeView === "kpi"
+                ? "text-emerald-700"
+                : "text-gray-400"
+            }`}
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span className="text-[10px] font-medium">KPI</span>
+          </button>
+          <button
+            onClick={() => setActiveView("trend")}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              activeView === "trend"
+                ? "text-emerald-700"
+                : "text-gray-400"
+            }`}
+          >
+            <TrendingUp className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Tren</span>
+          </button>
+
+          {/* Floating Upload Button */}
+          <button
+            onClick={() => setShowUpload(!showUpload)}
+            className={`relative -mt-5 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
+              showUpload
+                ? "bg-red-500 text-white scale-95"
+                : "bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-105"
+            }`}
+          >
+            {showUpload ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Upload className="h-5 w-5" />
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setShowSettings(true);
+              setPwdMsg("");
+              setCurrentPwd("");
+              setNewPwd("");
+            }}
+            className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg text-gray-400 transition-colors hover:text-gray-600"
+          >
+            <Settings className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Setting</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ═══ SETTINGS DIALOG ═══ */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle className="flex items-center gap-2"><Key className="h-4 w-4" /> Pengaturan</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-4 w-4" /> Pengaturan
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-medium mb-2">Ganti Password</h3>
-              <input type="password" placeholder="Password lama" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm mb-2" />
-              <input type="password" placeholder="Password baru (min. 6 karakter)" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input
+                type="password"
+                placeholder="Password lama"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+              />
+              <input
+                type="password"
+                placeholder="Password baru (min. 6 karakter)"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
             </div>
-            {pwdMsg && <p className={`text-sm ${pwdMsg.includes("berhasil") ? "text-emerald-600" : "text-red-600"}`}>{pwdMsg}</p>}
-            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+            {pwdMsg && (
+              <p
+                className={`text-sm ${
+                  pwdMsg.includes("berhasil")
+                    ? "text-emerald-600"
+                    : "text-red-600"
+                }`}
+              >
+                {pwdMsg}
+              </p>
+            )}
+            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
               <p className="font-medium mb-1">Info Server</p>
-              <p>Mode: {isServerMode ? "Server (data tersimpan)" : "Lokal (data sementara)"}</p>
+              <p>
+                Mode:{" "}
+                {isServerMode
+                  ? "Server (data tersimpan)"
+                  : "Lokal (data sementara)"}
+              </p>
               <p>Total Periode: {snapshots.length}</p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSettings(false)}>Tutup</Button>
-            <Button onClick={handleChangePassword} disabled={!currentPwd || !newPwd}>Simpan Password</Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowSettings(false)}
+            >
+              Tutup
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={!currentPwd || !newPwd}
+            >
+              Simpan Password
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* DELETE DIALOG */}
+      {/* ═══ DELETE CONFIRMATION DIALOG ═══ */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Hapus Periode</DialogTitle></DialogHeader>
-          <p className="text-sm text-gray-600">Yakin ingin menghapus data periode <strong>{deleteDate}</strong>? Tindakan ini tidak bisa dibatalkan.</p>
+          <DialogHeader>
+            <DialogTitle>Hapus Periode</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Yakin ingin menghapus data periode{" "}
+            <strong>
+              {snapshots.find((s) => s.dateSort === deleteDate)?.date ||
+                deleteDate}
+            </strong>
+            ? Tindakan ini tidak bisa dibatalkan.
+          </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Batal</Button>
-            <Button variant="destructive" onClick={handleDeleteSnapshot}>Hapus</Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSnapshot}>
+              Hapus
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

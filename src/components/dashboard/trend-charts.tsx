@@ -30,9 +30,12 @@ const LINE_COLORS = [
 
 interface TrendChartsProps {
   snapshots: SnapshotData[];
+  compareMode?: boolean;
+  compareDateSort?: string | null;
+  selectedIndex?: number;
 }
 
-export function TrendCharts({ snapshots }: TrendChartsProps) {
+export function TrendCharts({ snapshots, compareMode, compareDateSort, selectedIndex }: TrendChartsProps) {
   // Collect all unique unit codes across all snapshots
   const unitCodes = useMemo(() => {
     const codeSet = new Set<string>();

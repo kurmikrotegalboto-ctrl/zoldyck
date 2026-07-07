@@ -8,9 +8,10 @@ interface UnitDetailTableProps {
   unit: KpiUnit;
   unitLabel: string;
   prevUnit?: KpiUnit;
+  compareLabel?: string;
 }
 
-export function UnitDetailTable({ unit, unitLabel, prevUnit }: UnitDetailTableProps) {
+export function UnitDetailTable({ unit, unitLabel, prevUnit, compareLabel }: UnitDetailTableProps) {
   const rows = useMemo(() => {
     const result: {
       no: number | null;
@@ -94,7 +95,7 @@ export function UnitDetailTable({ unit, unitLabel, prevUnit }: UnitDetailTablePr
           </span>
           {prevUnit && (
             <span>
-              Delta: <DeltaValue value={totalDelta} />
+              Delta{compareLabel ? ` vs ${compareLabel}` : ""}: <DeltaValue value={totalDelta} />
             </span>
           )}
         </div>
