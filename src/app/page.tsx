@@ -443,9 +443,18 @@ export default function Home() {
         }),
       });
 
-      if (!res.ok) throw new Error("PDF generation failed");
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        throw new Error(errBody || `PDF generation failed (${res.status})`);
+      }
 
       const blob = await res.blob();
+
+      // Validate it's actually a PDF
+      if (blob.type && blob.type !== "application/pdf" && !blob.type.startsWith("application/pdf")) {
+        throw new Error("Response is not a PDF file");
+      }
+
       const disposition = res.headers.get("Content-Disposition") || "";
       const match = disposition.match(/filename="(.+?)"/);
       const filename = match ? match[1] : "KPI_Report.pdf";
@@ -461,6 +470,7 @@ export default function Home() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("PDF download failed:", error);
+      alert("Gagal membuat PDF: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsGeneratingPdf(false);
     }

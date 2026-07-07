@@ -1,0 +1,1188 @@
+     1→"use client";
+     2→
+     3→import { useState, useCallback, useEffect, useMemo } from "react";
+     4→import {
+     5→  Upload,
+     6→  FileSpreadsheet,
+     7→  X,
+     8→  CheckCircle2,
+     9→  AlertCircle,
+    10→  Loader2,
+    11→  ChevronDown,
+    12→  Activity,
+    13→  CalendarDays,
+    14→  LogOut,
+    15→  Trash2,
+    16→  Settings,
+    17→  Key,
+    18→  TrendingUp,
+    19→  BarChart3,
+    20→  Building2,
+    21→  ChevronRight,
+    22→  ArrowLeftRight,
+    23→  CalendarIcon,
+    24→  Download,
+    25→} from "lucide-react";
+    26→import { Button } from "@/components/ui/button";
+    27→import { Badge } from "@/components/ui/badge";
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from "@/components/ui/select";
+    35→import {
+    36→  Dialog,
+    37→  DialogContent,
+    38→  DialogHeader,
+    39→  DialogTitle,
+    40→  DialogFooter,
+    41→} from "@/components/ui/dialog";
+    42→import {
+    43→  Popover,
+    44→  PopoverTrigger,
+    45→  PopoverContent,
+    46→} from "@/components/ui/popover";
+    47→import { UnitDetailTable } from "@/components/dashboard/unit-detail-table";
+    48→import { TrendCharts } from "@/components/dashboard/trend-charts";
+    49→import { CompareCalendar } from "@/components/dashboard/compare-calendar";
+    50→import { defaultSnapshot } from "@/lib/default-data";
+    51→import { parseMultipleFiles } from "@/lib/kpi-parser";
+    52→import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
+    53→
+    54→// ─── Constants ────────────────────────────────────────────────────────────────
+    55→
+    56→const UNIT_LIST = [
+    57→  { code: "14200_UPC", label: "UPC TEGALBOTO", short: "UPC Tegalboto" },
+    58→  { code: "14200_CP", label: "CP TEGALBOTO", short: "CP Tegalboto" },
+    59→  { code: "14201", label: "BASUKI RAHMAD", short: "Basuki Rahmad" },
+    60→  { code: "14202", label: "S PARMAN", short: "S. Parman" },
+    61→  { code: "14204", label: "KALISAT", short: "Kalisat" },
+    62→  { code: "14205", label: "MAYANG", short: "Mayang" },
+    63→  { code: "17506", label: "COLO SUMBERJATI", short: "Colo Sumberjati" },
+    64→];
+    65→
+    66→const STORAGE_KEY = "kpi_snapshots";
+    67→
+    68→// ─── Helpers ──────────────────────────────────────────────────────────────────
+    69→
+    70→function getKpiColor(totalKpi: number): string {
+    71→  if (totalKpi >= 85) return "#059669";
+    72→  if (totalKpi >= 70) return "#d97706";
+    73→  if (totalKpi >= 55) return "#ea580c";
+    74→  return "#dc2626";
+    75→}
+    76→
+    77→function getKpiTextClass(totalKpi: number): string {
+    78→  if (totalKpi >= 85) return "text-emerald-600";
+    79→  if (totalKpi >= 70) return "text-amber-600";
+    80→  if (totalKpi >= 55) return "text-orange-600";
+    81→  return "text-red-600";
+    82→}
+    83→
+    84→function getKpiBgClass(totalKpi: number): string {
+    85→  if (totalKpi >= 85) return "bg-emerald-100 text-emerald-800";
+    86→  if (totalKpi >= 70) return "bg-amber-100 text-amber-800";
+    87→  if (totalKpi >= 55) return "bg-orange-100 text-orange-800";
+    88→  return "bg-red-100 text-red-800";
+    89→}
+    90→
+    91→function mergeSnapshots(
+    92→  existing: SnapshotData[],
+    93→  newSnapshot: SnapshotData
+    94→): SnapshotData[] {
+    95→  const arr = [...existing];
+    96→  const idx = arr.findIndex((s) => s.dateSort === newSnapshot.dateSort);
+    97→  if (idx >= 0) {
+    98→    const updatedUnits = [...arr[idx].units];
+    99→    for (const unit of newSnapshot.units) {
+   100→      const uIdx = updatedUnits.findIndex((u) => u.code === unit.code);
+   101→      if (uIdx >= 0) updatedUnits[uIdx] = unit;
+   102→      else updatedUnits.push(unit);
+   103→    }
+   104→    arr[idx] = { ...arr[idx], units: updatedUnits };
+   105→  } else {
+   106→    arr.push(newSnapshot);
+   107→  }
+   108→  arr.sort((a, b) => a.dateSort.localeCompare(b.dateSort));
+   109→  return arr;
+   110→}
+   111→
+   112→// ─── Component ────────────────────────────────────────────────────────────────
+   113→
+   114→export default function Home() {
+   115→  // ── Core state ──
+   116→  const [snapshots, setSnapshots] = useState<SnapshotData[]>([defaultSnapshot]);
+   117→  const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
+   118→  const [selectedUnitCode, setSelectedUnitCode] = useState<string | null>(null);
+   119→  const [activeView, setActiveView] = useState<"kpi" | "trend">("kpi");
+   120→  const [isServerMode, setIsServerMode] = useState(false);
+   121→
+   122→  // ── Upload state ──
+   123→  const [showUpload, setShowUpload] = useState(false);
+   124→  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+   125→  const [isUploading, setIsUploading] = useState(false);
+   126→  const [isDragging, setIsDragging] = useState(false);
+   127→  const [fileStatuses, setFileStatuses] = useState<
+   128→    {
+   129→      file: File;
+   130→      status: "pending" | "parsing" | "success" | "error" | "update";
+   131→      errorMsg?: string;
+   132→    }[]
+   133→  >([]);
+   134→
+   135→  // ── Compare state ──
+   136→  const [compareMode, setCompareMode] = useState(false);
+   137→  const [compareDateSort, setCompareDateSort] = useState<string | null>(null);
+   138→  const [showCompareCalendar, setShowCompareCalendar] = useState(false);
+   139→
+   140→  // ── UI state ──
+   141→  const [showUnitPopover, setShowUnitPopover] = useState(false);
+   142→  const [showSettings, setShowSettings] = useState(false);
+   143→  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+   144→  const [deleteDate, setDeleteDate] = useState("");
+   145→  const [currentPwd, setCurrentPwd] = useState("");
+   146→  const [newPwd, setNewPwd] = useState("");
+   147→  const [pwdMsg, setPwdMsg] = useState("");
+   148→  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+   149→
+   150→  // ── Derived data ──
+   151→  const currentSnapshot = snapshots[selectedSnapshotIndex] ?? snapshots[0];
+   152→  const prevSnapshot =
+   153→    selectedSnapshotIndex > 0 ? snapshots[selectedSnapshotIndex - 1] : undefined;
+   154→  const compareSnapshot = compareDateSort
+   155→    ? snapshots.find((s) => s.dateSort === compareDateSort)
+   156→    : undefined;
+   157→  const effectivePrevSnapshot = compareMode
+   158→    ? compareSnapshot
+   159→    : prevSnapshot;
+   160→
+   161→  const latestUnits: KpiUnit[] = currentSnapshot?.units ?? [];
+   162→
+   163→  useEffect(() => {
+   164→    if (!selectedUnitCode && latestUnits.length > 0) {
+   165→      setSelectedUnitCode(latestUnits[0].code);
+   166→    }
+   167→  }, [latestUnits, selectedUnitCode]);
+   168→
+   169→  const selectedUnit = latestUnits.find((u) => u.code === selectedUnitCode);
+   170→  const effectivePrevUnit = effectivePrevSnapshot?.units.find(
+   171→    (u) => u.code === selectedUnitCode
+   172→  );
+   173→
+   174→  const availableDates = useMemo(
+   175→    () => snapshots.map((s) => s.dateSort),
+   176→    [snapshots]
+   177→  );
+   178→
+   179→  const existingDateSorts = useMemo(
+   180→    () => new Set(snapshots.map((s) => s.dateSort)),
+   181→    [snapshots]
+   182→  );
+   183→
+   184→  // ── localStorage persistence ──
+   185→  useEffect(() => {
+   186→    const init = async () => {
+   187→      // Try localStorage first
+   188→      try {
+   189→        const saved = localStorage.getItem(STORAGE_KEY);
+   190→        if (saved) {
+   191→          const parsed = JSON.parse(saved);
+   192→          if (Array.isArray(parsed) && parsed.length > 0) {
+   193→            setSnapshots(parsed);
+   194→            setSelectedSnapshotIndex(parsed.length - 1);
+   195→            setIsServerMode(true);
+   196→            return; // Don't fetch from server if localStorage has data
+   197→          }
+   198→        }
+   199→      } catch (e) {
+   200→        console.error("localStorage read error:", e);
+   201→      }
+   202→
+   203→      // Fallback: try server
+   204→      try {
+   205→        const res = await fetch("/api/snapshots");
+   206→        if (res.ok) {
+   207→          const data = await res.json();
+   208→          if (data.snapshots && data.snapshots.length > 0) {
+   209→            setSnapshots(data.snapshots);
+   210→            setSelectedSnapshotIndex(data.snapshots.length - 1);
+   211→            setIsServerMode(true);
+   212→            // Save to localStorage for future
+   213→            try {
+   214→              localStorage.setItem(
+   215→                STORAGE_KEY,
+   216→                JSON.stringify(data.snapshots)
+   217→              );
+   218→            } catch (e) {
+   219→              console.error("localStorage save error:", e);
+   220→            }
+   221→          }
+   222→        }
+   223→      } catch (e) {
+   224→        console.error("Failed to fetch snapshots:", e);
+   225→      }
+   226→    };
+   227→    init();
+   228→  }, []);
+   229→
+   230→  // Save to localStorage whenever snapshots change
+   231→  useEffect(() => {
+   232→    if (isServerMode && snapshots.length > 0) {
+   233→      try {
+   234→        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
+   235→      } catch (e) {
+   236→        console.error("localStorage save error:", e);
+   237→      }
+   238→    }
+   239→  }, [snapshots, isServerMode]);
+   240→
+   241→  // ── File handling ──
+   242→  const addFiles = useCallback((files: FileList | File[]) => {
+   243→    const xlsxFiles = Array.from(files).filter((f) =>
+   244→      f.name.endsWith(".xlsx")
+   245→    );
+   246→    if (xlsxFiles.length === 0) return;
+   247→    setPendingFiles((prev) => {
+   248→      const existingNames = new Set(prev.map((f) => f.name));
+   249→      const newFiles = xlsxFiles.filter((f) => !existingNames.has(f.name));
+   250→      return [...prev, ...newFiles];
+   251→    });
+   252→  }, []);
+   253→
+   254→  const handleUpload = useCallback(async () => {
+   255→    if (pendingFiles.length === 0 || isUploading) return;
+   256→    setIsUploading(true);
+   257→    const newStatuses = pendingFiles.map((f) => ({
+   258→      file: f,
+   259→      status: "parsing" as const,
+   260→    }));
+   261→    setFileStatuses((prev) => [...prev, ...newStatuses]);
+   262→
+   263→    try {
+   264→      const parsed = await parseMultipleFiles(pendingFiles);
+   265→      const parsedFilenames = new Set(parsed.map((p) => p.filename));
+   266→
+   267→      // Update statuses based on parse result
+   268→      setFileStatuses((prev) =>
+   269→        prev.map((s) => {
+   270→          if (s.status !== "parsing") return s;
+   271→          if (parsedFilenames.has(s.file.name)) {
+   272→            // Check if this is an update or new
+   273→            const parsedFile = parsed.find((p) => p.filename === s.file.name);
+   274→            const isUpdate = parsedFile
+   275→              ? existingDateSorts.has(parsedFile.dateSort)
+   276→              : false;
+   277→            return {
+   278→              ...s,
+   279→              status: isUpdate ? ("update" as const) : ("success" as const),
+   280→            };
+   281→          }
+   282→          return {
+   283→            ...s,
+   284→            status: "error" as const,
+   285→            errorMsg: "Format tidak dikenali",
+   286→          };
+   287→        })
+   288→      );
+   289→
+   290→      if (parsed.length === 0) {
+   291→        setPendingFiles([]);
+   292→        setIsUploading(false);
+   293→        return;
+   294→      }
+   295→
+   296→      // Group parsed files by date
+   297→      const dateGroups: Record<
+   298→        string,
+   299→        { date: string; dateSort: string; units: KpiUnit[] }
+   300→      > = {};
+   301→      parsed.forEach((pf) => {
+   302→        if (!dateGroups[pf.dateSort]) {
+   303→          dateGroups[pf.dateSort] = {
+   304→            date: pf.date,
+   305→            dateSort: pf.dateSort,
+   306→            units: [],
+   307→          };
+   308→        }
+   309→        dateGroups[pf.dateSort].units.push(pf.unit);
+   310→      });
+   311→
+   312→      // Client-side merge
+   313→      let updatedSnapshots = [...snapshots];
+   314→      for (const group of Object.values(dateGroups)) {
+   315→        const snapshot: SnapshotData = {
+   316→          date: group.date,
+   317→          dateSort: group.dateSort,
+   318→          units: group.units,
+   319→        };
+   320→        updatedSnapshots = mergeSnapshots(updatedSnapshots, snapshot);
+   321→      }
+   322→
+   323→      setSnapshots(updatedSnapshots);
+   324→      setSelectedSnapshotIndex(updatedSnapshots.length - 1);
+   325→      setIsServerMode(true);
+   326→      setPendingFiles([]);
+   327→
+   328→      // Best-effort POST to server (may fail silently)
+   329→      try {
+   330→        for (const group of Object.values(dateGroups)) {
+   331→          const snapshot: SnapshotData = {
+   332→            date: group.date,
+   333→            dateSort: group.dateSort,
+   334→            units: group.units,
+   335→          };
+   336→          await fetch("/api/snapshots", {
+   337→            method: "POST",
+   338→            headers: { "Content-Type": "application/json" },
+   339→            body: JSON.stringify({ snapshot }),
+   340→          });
+   341→        }
+   342→      } catch (e) {
+   343→        console.error("Server upload failed (data saved locally):", e);
+   344→      }
+   345→    } catch {
+   346→      setFileStatuses((prev) =>
+   347→        prev.map((s) =>
+   348→          s.status === "parsing"
+   349→            ? { ...s, status: "error" as const, errorMsg: "Gagal memproses" }
+   350→            : s
+   351→        )
+   352→      );
+   353→    }
+   354→
+   355→    setIsUploading(false);
+   356→  }, [pendingFiles, isUploading, snapshots, existingDateSorts]);
+   357→
+   358→  // ── Delete handler ──
+   359→  const handleDeleteSnapshot = async () => {
+   360→    if (!deleteDate) return;
+   361→    const updated = snapshots.filter((s) => s.dateSort !== deleteDate);
+   362→    setSnapshots(updated.length > 0 ? updated : [defaultSnapshot]);
+   363→    setSelectedSnapshotIndex(
+   364→      Math.min(selectedSnapshotIndex, Math.max(0, updated.length - 1))
+   365→    );
+   366→    if (updated.length === 0) {
+   367→      setIsServerMode(false);
+   368→      setSelectedSnapshotIndex(0);
+   369→    }
+   370→
+   371→    // Remove from localStorage
+   372→    try {
+   373→      if (updated.length > 0) {
+   374→        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+   375→      } else {
+   376→        localStorage.removeItem(STORAGE_KEY);
+   377→      }
+   378→    } catch (e) {
+   379→      console.error("localStorage delete error:", e);
+   380→    }
+   381→
+   382→    // Best-effort server delete
+   383→    try {
+   384→      await fetch(`/api/snapshots?date=${encodeURIComponent(deleteDate)}`, {
+   385→        method: "DELETE",
+   386→      });
+   387→    } catch (e) {
+   388→      console.error("Server delete failed (data removed locally):", e);
+   389→    }
+   390→
+   391→    setShowDeleteConfirm(false);
+   392→    if (compareDateSort === deleteDate) {
+   393→      setCompareDateSort(null);
+   394→    }
+   395→  };
+   396→
+   397→  // ── Auth handlers ──
+   398→  const handleLogout = async () => {
+   399→    await fetch("/api/auth", { method: "DELETE" });
+   400→    window.location.href = "/login";
+   401→  };
+   402→
+   403→  const handleChangePassword = async () => {
+   404→    if (!currentPwd || !newPwd) return;
+   405→    const res = await fetch("/api/auth", {
+   406→      method: "PUT",
+   407→      headers: { "Content-Type": "application/json" },
+   408→      body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+   409→    });
+   410→    const data = await res.json();
+   411→    if (res.ok) {
+   412→      setPwdMsg("Password berhasil diubah!");
+   413→      setCurrentPwd("");
+   414→      setNewPwd("");
+   415→      setTimeout(() => {
+   416→        setPwdMsg("");
+   417→        setShowSettings(false);
+   418→      }, 2000);
+   419→    } else {
+   420→      setPwdMsg(data.error || "Gagal mengubah password");
+   421→    }
+   422→  };
+   423→
+   424→  const compareLabel = compareMode
+   425→    ? compareSnapshot?.date
+   426→    : undefined;
+   427→
+   428→  // ── PDF Download Handler (server-side generation) ──
+   429→  const handleDownloadPdf = useCallback(async () => {
+   430→    if (!selectedUnit || isGeneratingPdf) return;
+   431→    setIsGeneratingPdf(true);
+   432→
+   433→    try {
+   434→      const res = await fetch("/api/pdf", {
+   435→        method: "POST",
+   436→        headers: { "Content-Type": "application/json" },
+   437→        body: JSON.stringify({
+   438→          unit: selectedUnit,
+   439→          unitLabel: getUnitLabel(selectedUnit.code),
+   440→          date: currentSnapshot?.date || "",
+   441→          prevUnit: effectivePrevUnit || undefined,
+   442→          compareLabel: compareLabel ?? undefined,
+   443→        }),
+   444→      });
+   445→
+   446→      if (!res.ok) throw new Error("PDF generation failed");
+   447→
+   448→      const blob = await res.blob();
+   449→      const disposition = res.headers.get("Content-Disposition") || "";
+   450→      const match = disposition.match(/filename="(.+?)"/);
+   451→      const filename = match ? match[1] : "KPI_Report.pdf";
+   452→
+   453→      // Trigger download
+   454→      const url = URL.createObjectURL(blob);
+   455→      const a = document.createElement("a");
+   456→      a.href = url;
+   457→      a.download = filename;
+   458→      document.body.appendChild(a);
+   459→      a.click();
+   460→      document.body.removeChild(a);
+   461→      URL.revokeObjectURL(url);
+   462→    } catch (error) {
+   463→      console.error("PDF download failed:", error);
+   464→    } finally {
+   465→      setIsGeneratingPdf(false);
+   466→    }
+   467→  }, [isGeneratingPdf, selectedUnit, currentSnapshot, effectivePrevUnit, compareLabel]);
+   468→
+   469→  // ── KPI delta for summary bar ──
+   470→  const kpiDelta = useMemo(() => {
+   471→    if (!selectedUnit || !effectivePrevUnit) return 0;
+   472→    return parseFloat(
+   473→      (selectedUnit.total_kpi - effectivePrevUnit.total_kpi).toFixed(2)
+   474→    );
+   475→  }, [selectedUnit, effectivePrevUnit]);
+   476→
+   477→  // ── Period change handler ──
+   478→  const handlePeriodChange = useCallback(
+   479→    (val: string) => {
+   480→      setSelectedSnapshotIndex(Number(val));
+   481→    },
+   482→    []
+   483→  );
+   484→
+   485→  // ── Render helpers ──
+   486→  const getUnitLabel = (code: string) =>
+   487→    UNIT_LIST.find((u) => u.code === code)?.label || code;
+   488→
+   489→  // ────────────────────────────────────────────────────────────────────────────
+   490→  // RENDER
+   491→  // ────────────────────────────────────────────────────────────────────────────
+   492→
+   493→  return (
+   494→    <div className="min-h-screen flex flex-col bg-[#f0f4f8]">
+   495→      {/* ═══ GLASSMORPHISM HEADER ═══ */}
+   496→      <header className="glass-header sticky top-0 z-50 px-3 md:px-5 py-2">
+   497→        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+   498→          {/* Left: Logo + KPI Unit Popover */}
+   499→          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+   500→            <Activity className="h-4 w-4 text-emerald-600 shrink-0 hidden sm:block" />
+   501→            <h1 className="text-[11px] md:text-xs font-black tracking-tight bg-gradient-to-r from-emerald-700 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">
+   502→              MONEV KPI / TEGALBOTO 2026
+   503→            </h1>
+   504→            {isServerMode && (
+   505→              <Badge
+   506→                variant="outline"
+   507→                className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 hidden sm:inline-flex px-1.5 py-0"
+   508→              >
+   509→                Online
+   510→              </Badge>
+   511→            )}
+   512→
+   513→            {/* KPI Unit Dropdown (Popover) */}
+   514→            <Popover open={showUnitPopover} onOpenChange={setShowUnitPopover}>
+   515→              <PopoverTrigger asChild>
+   516→                <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/60 transition-colors text-xs font-medium text-gray-700 border border-gray-200/60 bg-white/40">
+   517→                  <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+   518→                  <span className="max-w-[100px] md:max-w-[140px] truncate">
+   519→                    {selectedUnit
+   520→                      ? UNIT_LIST.find((u) => u.code === selectedUnit.code)
+   521→                          ?.short || selectedUnit.name
+   522→                      : "Pilih Unit"}
+   523→                  </span>
+   524→                  <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
+   525→                </button>
+   526→              </PopoverTrigger>
+   527→              <PopoverContent
+   528→                className="w-[260px] p-2"
+   529→                align="start"
+   530→                sideOffset={6}
+   531→              >
+   532→                <div className="space-y-0.5">
+   533→                  {UNIT_LIST.map((u) => {
+   534→                    const unit = latestUnits.find((lu) => lu.code === u.code);
+   535→                    const hasData = !!unit;
+   536→                    const isActive = selectedUnitCode === u.code;
+   537→                    return (
+   538→                      <button
+   539→                        key={u.code}
+   540→                        onClick={() => {
+   541→                          if (hasData) {
+   542→                            setSelectedUnitCode(u.code);
+   543→                            setActiveView("kpi");
+   544→                            setShowUnitPopover(false);
+   545→                          }
+   546→                        }}
+   547→                        disabled={!hasData}
+   548→                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+   549→                          isActive
+   550→                            ? "bg-emerald-50 text-emerald-700"
+   551→                            : hasData
+   552→                            ? "text-gray-700 hover:bg-gray-50"
+   553→                            : "text-gray-300 cursor-default"
+   554→                        }`}
+   555→                      >
+   556→                        <div
+   557→                          className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
+   558→                          style={{
+   559→                            backgroundColor: hasData
+   560→                              ? getKpiColor(unit!.total_kpi)
+   561→                              : "#d1d5db",
+   562→                            ringColor: hasData
+   563→                              ? getKpiColor(unit!.total_kpi)
+   564→                              : "#e5e7eb",
+   565→                          }}
+   566→                        />
+   567→                        <div className="flex-1 text-left min-w-0">
+   568→                          <div className="truncate">{u.short}</div>
+   569→                        </div>
+   570→                        {hasData && (
+   571→                          <span
+   572→                            className={`text-[10px] font-bold tabular-nums ${getKpiTextClass(unit!.total_kpi)}`}
+   573→                          >
+   574→                            {unit!.total_kpi.toFixed(1)}
+   575→                          </span>
+   576→                        )}
+   577→                        {isActive && (
+   578→                          <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0" />
+   579→                        )}
+   580→                      </button>
+   581→                    );
+   582→                  })}
+   583→                </div>
+   584→              </PopoverContent>
+   585→            </Popover>
+   586→          </div>
+   587→
+   588→          {/* Right: Controls */}
+   589→          <div className="flex items-center gap-1.5 md:gap-2">
+   590→            {/* View Toggle (hidden on mobile, shown in bottom nav) */}
+   591→            <div className="hidden md:flex items-center bg-gray-100/80 rounded-lg p-0.5">
+   592→              <button
+   593→                onClick={() => setActiveView("kpi")}
+   594→                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+   595→                  activeView === "kpi"
+   596→                    ? "bg-white text-emerald-700 shadow-sm"
+   597→                    : "text-gray-500 hover:text-gray-700"
+   598→                }`}
+   599→              >
+   600→                <BarChart3 className="h-3 w-3" />
+   601→                KPI
+   602→              </button>
+   603→              <button
+   604→                onClick={() => setActiveView("trend")}
+   605→                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+   606→                  activeView === "trend"
+   607→                    ? "bg-white text-emerald-700 shadow-sm"
+   608→                    : "text-gray-500 hover:text-gray-700"
+   609→                }`}
+   610→              >
+   611→                <TrendingUp className="h-3 w-3" />
+   612→                Tren
+   613→              </button>
+   614→            </div>
+   615→
+   616→            {/* Period Selector */}
+   617→            <div className="flex items-center gap-1">
+   618→              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+   619→              <Select
+   620→                value={String(selectedSnapshotIndex)}
+   621→                onValueChange={handlePeriodChange}
+   622→              >
+   623→                <SelectTrigger className="w-[120px] md:w-[150px] h-7 text-[11px] bg-white/40 border-gray-200/60">
+   624→                  <SelectValue placeholder="Pilih Periode" />
+   625→                </SelectTrigger>
+   626→                <SelectContent>
+   627→                  {snapshots.map((s, idx) => (
+   628→                    <SelectItem
+   629→                      key={s.dateSort}
+   630→                      value={String(idx)}
+   631→                      className="text-[11px]"
+   632→                    >
+   633→                      {s.date}
+   634→                      {idx === snapshots.length - 1 && " (Terbaru)"}
+   635→                    </SelectItem>
+   636→                  ))}
+   637→                </SelectContent>
+   638→              </Select>
+   639→            </div>
+   640→
+   641→            {/* Compare Button (Banding) */}
+   642→            {isServerMode && snapshots.length > 1 && (
+   643→              <div className="flex items-center gap-1">
+   644→                <button
+   645→                  onClick={() => {
+   646→                    setCompareMode(!compareMode);
+   647→                    if (compareMode) {
+   648→                      setCompareDateSort(null);
+   649→                      setShowCompareCalendar(false);
+   650→                    }
+   651→                  }}
+   652→                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+   653→                    compareMode
+   654→                      ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+   655→                      : "text-gray-500 hover:bg-white/60 border border-transparent"
+   656→                  }`}
+   657→                >
+   658→                  <ArrowLeftRight className="h-3 w-3" />
+   659→                  <span className="hidden sm:inline">Banding</span>
+   660→                </button>
+   661→
+   662→                {compareMode && (
+   663→                  <Popover
+   664→                    open={showCompareCalendar}
+   665→                    onOpenChange={setShowCompareCalendar}
+   666→                  >
+   667→                    <PopoverTrigger asChild>
+   668→                      <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-white/60 border border-gray-200/60 bg-white/40 transition-colors">
+   669→                        <CalendarIcon className="h-3 w-3 text-emerald-600" />
+   670→                        <span className="hidden sm:inline max-w-[80px] truncate">
+   671→                          {compareSnapshot?.date || "Pilih tanggal"}
+   672→                        </span>
+   673→                      </button>
+   674→                    </PopoverTrigger>
+   675→                    <PopoverContent
+   676→                      className="w-auto p-0"
+   677→                      align="end"
+   678→                      sideOffset={6}
+   679→                    >
+   680→                      <CompareCalendar
+   681→                        availableDates={availableDates.filter(
+   682→                          (d) => d !== currentSnapshot?.dateSort
+   683→                        )}
+   684→                        selectedDate={compareDateSort ?? undefined}
+   685→                        onSelect={(dateSort) => {
+   686→                          setCompareDateSort(dateSort);
+   687→                        }}
+   688→                        onClose={() => setShowCompareCalendar(false)}
+   689→                      />
+   690→                    </PopoverContent>
+   691→                  </Popover>
+   692→                )}
+   693→              </div>
+   694→            )}
+   695→
+   696→            {/* Upload Button */}
+   697→            <button
+   698→              onClick={() => setShowUpload(!showUpload)}
+   699→              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+   700→                showUpload
+   701→                  ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+   702→                  : "text-gray-500 hover:bg-white/60 border border-transparent"
+   703→              }`}
+   704→            >
+   705→              <Upload className="h-3 w-3" />
+   706→              <span className="hidden md:inline">Upload</span>
+   707→            </button>
+   708→
+   709→            {/* Download PDF Button */}
+   710→            <button
+   711→              onClick={handleDownloadPdf}
+   712→              disabled={isGeneratingPdf}
+   713→              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
+   714→              title="Download PDF"
+   715→            >
+   716→              {isGeneratingPdf ? (
+   717→                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   718→              ) : (
+   719→                <Download className="h-3.5 w-3.5" />
+   720→              )}
+   721→            </button>
+   722→
+   723→            {/* Settings */}
+   724→            <button
+   725→              onClick={() => {
+   726→                setShowSettings(true);
+   727→                setPwdMsg("");
+   728→                setCurrentPwd("");
+   729→                setNewPwd("");
+   730→              }}
+   731→              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-white/60 transition-colors"
+   732→              title="Pengaturan"
+   733→            >
+   734→              <Settings className="h-3.5 w-3.5" />
+   735→            </button>
+   736→
+   737→            {/* Logout */}
+   738→            <button
+   739→              onClick={handleLogout}
+   740→              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+   741→              title="Logout"
+   742→            >
+   743→              <LogOut className="h-3.5 w-3.5" />
+   744→            </button>
+   745→          </div>
+   746→        </div>
+   747→      </header>
+   748→
+   749→      {/* ═══ UPLOAD PANEL ═══ */}
+   750→      {showUpload && (
+   751→        <div className="bg-white border-b px-3 md:px-5 py-3 animate-fade-up z-40">
+   752→          <div className="max-w-2xl mx-auto">
+   753→            <div
+   754→              className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer ${
+   755→                isDragging
+   756→                  ? "border-emerald-500 bg-emerald-50"
+   757→                  : "border-gray-300 hover:border-emerald-400"
+   758→              }`}
+   759→              onDragOver={(e) => {
+   760→                e.preventDefault();
+   761→                setIsDragging(true);
+   762→              }}
+   763→              onDragLeave={(e) => {
+   764→                e.preventDefault();
+   765→                setIsDragging(false);
+   766→              }}
+   767→              onDrop={(e) => {
+   768→                e.preventDefault();
+   769→                setIsDragging(false);
+   770→                addFiles(e.dataTransfer.files);
+   771→              }}
+   772→              onClick={() => document.getElementById("file-input")?.click()}
+   773→            >
+   774→              <input
+   775→                id="file-input"
+   776→                type="file"
+   777→                accept=".xlsx"
+   778→                multiple
+   779→                className="hidden"
+   780→                onChange={(e) => {
+   781→                  if (e.target.files) addFiles(e.target.files);
+   782→                  e.target.value = "";
+   783→                }}
+   784→              />
+   785→              <Upload
+   786→                className={`mx-auto h-6 w-6 mb-1 ${
+   787→                  isDragging ? "text-emerald-500" : "text-muted-foreground"
+   788→                }`}
+   789→              />
+   790→              <p className="text-xs font-medium">
+   791→                {isDragging
+   792→                  ? "Lepaskan file di sini..."
+   793→                  : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}
+   794→              </p>
+   795→              <p className="text-[10px] text-muted-foreground mt-0.5">
+   796→                Mendukung upload 7 file sekaligus
+   797→              </p>
+   798→            </div>
+   799→
+   800→            {pendingFiles.length > 0 && (
+   801→              <div className="mt-2 space-y-1">
+   802→                <div className="max-h-24 overflow-y-auto space-y-1">
+   803→                  {pendingFiles.map((f, idx) => (
+   804→                    <div
+   805→                      key={idx}
+   806→                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+   807→                    >
+   808→                      <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+   809→                      <span className="flex-1 truncate">{f.name}</span>
+   810→                      <span className="text-[9px] text-gray-400">
+   811→                        {(f.size / 1024).toFixed(0)} KB
+   812→                      </span>
+   813→                      <button
+   814→                        onClick={() =>
+   815→                          setPendingFiles((prev) =>
+   816→                            prev.filter((_, i) => i !== idx)
+   817→                          )
+   818→                        }
+   819→                        className="text-gray-400 hover:text-red-500"
+   820→                      >
+   821→                        <X className="h-3 w-3" />
+   822→                      </button>
+   823→                    </div>
+   824→                  ))}
+   825→                </div>
+   826→                <div className="flex items-center justify-between mt-2">
+   827→                  <p className="text-[10px] text-muted-foreground">
+   828→                    {pendingFiles.length} file dipilih
+   829→                  </p>
+   830→                  <div className="flex gap-2">
+   831→                    <Button
+   832→                      variant="ghost"
+   833→                      size="sm"
+   834→                      className="h-7 text-[11px]"
+   835→                      onClick={() => setPendingFiles([])}
+   836→                    >
+   837→                      Batal
+   838→                    </Button>
+   839→                    <Button
+   840→                      size="sm"
+   841→                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
+   842→                      onClick={handleUpload}
+   843→                      disabled={isUploading}
+   844→                    >
+   845→                      {isUploading ? (
+   846→                        <>
+   847→                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
+   848→                          Mengupload...
+   849→                        </>
+   850→                      ) : (
+   851→                        <>
+   852→                          <Upload className="h-3 w-3 mr-1" /> Upload
+   853→                        </>
+   854→                      )}
+   855→                    </Button>
+   856→                  </div>
+   857→                </div>
+   858→              </div>
+   859→            )}
+   860→
+   861→            {fileStatuses.length > 0 && (
+   862→              <div className="mt-2 space-y-1">
+   863→                <div className="flex items-center justify-between">
+   864→                  <p className="text-[10px] font-medium text-gray-600">
+   865→                    Riwayat Upload
+   866→                  </p>
+   867→                  <Button
+   868→                    variant="ghost"
+   869→                    size="sm"
+   870→                    className="h-5 text-[10px]"
+   871→                    onClick={() => setFileStatuses([])}
+   872→                  >
+   873→                    <X className="h-2.5 w-2.5 mr-0.5" /> Hapus
+   874→                  </Button>
+   875→                </div>
+   876→                <div className="max-h-20 overflow-y-auto space-y-1">
+   877→                  {fileStatuses.map((fs, idx) => (
+   878→                    <div
+   879→                      key={idx}
+   880→                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+   881→                    >
+   882→                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+   883→                      <span className="flex-1 truncate">{fs.file.name}</span>
+   884→                      {fs.status === "parsing" && (
+   885→                        <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />
+   886→                      )}
+   887→                      {fs.status === "success" && (
+   888→                        <>
+   889→                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+   890→                          <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-0 px-1.5 py-0">
+   891→                            Baru
+   892→                          </Badge>
+   893→                        </>
+   894→                      )}
+   895→                      {fs.status === "update" && (
+   896→                        <>
+   897→                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+   898→                          <Badge className="text-[9px] bg-blue-100 text-blue-700 border-0 px-1.5 py-0">
+   899→                            Update
+   900→                          </Badge>
+   901→                        </>
+   902→                      )}
+   903→                      {fs.status === "error" && (
+   904→                        <>
+   905→                          <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+   906→                          <span className="text-red-500 text-[10px]">
+   907→                            Gagal
+   908→                          </span>
+   909→                        </>
+   910→                      )}
+   911→                    </div>
+   912→                  ))}
+   913→                </div>
+   914→              </div>
+   915→            )}
+   916→          </div>
+   917→        </div>
+   918→      )}
+   919→
+   920→      {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
+   921→      {selectedUnit && activeView === "kpi" && (
+   922→        <div className="sticky top-[53px] z-30 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
+   923→          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+   924→            <div className="flex items-center gap-3 min-w-0">
+   925→              <div
+   926→                className="w-3 h-3 rounded-full shrink-0"
+   927→                style={{
+   928→                  backgroundColor: getKpiColor(selectedUnit.total_kpi),
+   929→                }}
+   930→              />
+   931→              <div className="min-w-0">
+   932→                <p className="text-sm font-bold truncate">
+   933→                  {getUnitLabel(selectedUnit.code)}
+   934→                </p>
+   935→                <p className="text-[10px] text-muted-foreground">
+   936→                  {selectedUnit.components.length} komponen KPI
+   937→                </p>
+   938→              </div>
+   939→            </div>
+   940→            <div className="flex items-center gap-2 shrink-0">
+   941→              <div className="text-right">
+   942→                <p
+   943→                  className={`text-xl font-black tabular-nums ${getKpiTextClass(selectedUnit.total_kpi)}`}
+   944→                >
+   945→                  {selectedUnit.total_kpi.toFixed(2)}
+   946→                </p>
+   947→              </div>
+   948→              {effectivePrevUnit && (
+   949→                <div className="flex flex-col items-end gap-0.5">
+   950→                  <span className="text-[10px] text-muted-foreground">
+   951→                    vs {compareLabel || prevSnapshot?.date || "kemarin"}
+   952→                  </span>
+   953→                  <Badge
+   954→                    variant="outline"
+   955→                    className={`text-[10px] font-bold px-1.5 py-0 border-0 ${
+   956→                      kpiDelta > 0
+   957→                        ? "bg-emerald-100 text-emerald-700"
+   958→                        : kpiDelta < 0
+   959→                        ? "bg-red-100 text-red-700"
+   960→                        : "bg-gray-100 text-gray-500"
+   961→                    }`}
+   962→                  >
+   963→                    {kpiDelta > 0 ? "+" : ""}
+   964→                    {kpiDelta.toFixed(2)}
+   965→                  </Badge>
+   966→                </div>
+   967→              )}
+   968→              {isServerMode && currentSnapshot && (
+   969→                <button
+   970→                  onClick={() => {
+   971→                    setDeleteDate(currentSnapshot.dateSort);
+   972→                    setShowDeleteConfirm(true);
+   973→                  }}
+   974→                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+   975→                  title="Hapus periode ini"
+   976→                >
+   977→                  <Trash2 className="h-3.5 w-3.5" />
+   978→                </button>
+   979→              )}
+   980→              <button
+   981→                onClick={handleDownloadPdf}
+   982→                disabled={isGeneratingPdf}
+   983→                className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50 md:hidden"
+   984→                title="Download PDF"
+   985→              >
+   986→                {isGeneratingPdf ? (
+   987→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   988→                ) : (
+   989→                  <Download className="h-3.5 w-3.5" />
+   990→                )}
+   991→              </button>
+   992→            </div>
+   993→          </div>
+   994→        </div>
+   995→      )}
+   996→
+   997→      {/* ═══ MAIN CONTENT ═══ */}
+   998→      <main className="flex-1 p-3 md:p-5 pb-24 md:pb-5">
+   999→        <div className="max-w-7xl mx-auto animate-fade-up">
+  1000→          {activeView === "trend" ? (
+  1001→            <TrendCharts
+  1002→              snapshots={snapshots}
+  1003→              compareMode={compareMode}
+  1004→              compareDateSort={compareDateSort}
+  1005→              selectedIndex={selectedSnapshotIndex}
+  1006→            />
+  1007→          ) : selectedUnit ? (
+  1008→            <UnitDetailTable
+  1009→              unit={selectedUnit}
+  1010→              unitLabel={getUnitLabel(selectedUnit.code)}
+  1011→              prevUnit={effectivePrevUnit}
+  1012→              compareLabel={compareLabel}
+  1013→            />
+  1014→          ) : (
+  1015→            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+  1016→              <Building2 className="h-12 w-12 mb-3 opacity-30" />
+  1017→              <p className="text-sm font-medium">Pilih outlet dari dropdown KPI</p>
+  1018→              <p className="text-xs mt-1 text-gray-300">
+  1019→                Klik dropdown unit di header untuk melihat detail KPI
+  1020→              </p>
+  1021→            </div>
+  1022→          )}
+  1023→        </div>
+  1024→      </main>
+  1025→
+  1026→      {/* ═══ MOBILE BOTTOM NAV ═══ */}
+  1027→      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t safe-area-inset-bottom">
+  1028→        <div className="flex items-center justify-around py-1.5 px-2">
+  1029→          <button
+  1030→            onClick={() => setActiveView("kpi")}
+  1031→            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+  1032→              activeView === "kpi"
+  1033→                ? "text-emerald-700"
+  1034→                : "text-gray-400"
+  1035→            }`}
+  1036→          >
+  1037→            <BarChart3 className="h-5 w-5" />
+  1038→            <span className="text-[10px] font-medium">KPI</span>
+  1039→          </button>
+  1040→          <button
+  1041→            onClick={() => setActiveView("trend")}
+  1042→            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+  1043→              activeView === "trend"
+  1044→                ? "text-emerald-700"
+  1045→                : "text-gray-400"
+  1046→            }`}
+  1047→          >
+  1048→            <TrendingUp className="h-5 w-5" />
+  1049→            <span className="text-[10px] font-medium">Tren</span>
+  1050→          </button>
+  1051→
+  1052→          {/* Floating Upload Button */}
+  1053→          <button
+  1054→            onClick={() => setShowUpload(!showUpload)}
+  1055→            className={`relative -mt-5 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
+  1056→              showUpload
+  1057→                ? "bg-red-500 text-white scale-95"
+  1058→                : "bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-105"
+  1059→            }`}
+  1060→          >
+  1061→            {showUpload ? (
+  1062→              <X className="h-5 w-5" />
+  1063→            ) : (
+  1064→              <Upload className="h-5 w-5" />
+  1065→            )}
+  1066→          </button>
+  1067→
+  1068→          <button
+  1069→            onClick={() => {
+  1070→              setShowSettings(true);
+  1071→              setPwdMsg("");
+  1072→              setCurrentPwd("");
+  1073→              setNewPwd("");
+  1074→            }}
+  1075→            className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg text-gray-400 transition-colors hover:text-gray-600"
+  1076→          >
+  1077→            <Settings className="h-5 w-5" />
+  1078→            <span className="text-[10px] font-medium">Setting</span>
+  1079→          </button>
+  1080→        </div>
+  1081→      </nav>
+  1082→
+  1083→      {/* ═══ SETTINGS DIALOG ═══ */}
+  1084→      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+  1085→        <DialogContent className="sm:max-w-md">
+  1086→          <DialogHeader>
+  1087→            <DialogTitle className="flex items-center gap-2">
+  1088→              <Key className="h-4 w-4" /> Pengaturan
+  1089→            </DialogTitle>
+  1090→          </DialogHeader>
+  1091→          <div className="space-y-4">
+  1092→            <div>
+  1093→              <h3 className="text-sm font-medium mb-2">Ganti Password</h3>
+  1094→              <input
+  1095→                type="password"
+  1096→                placeholder="Password lama"
+  1097→                value={currentPwd}
+  1098→                onChange={(e) => setCurrentPwd(e.target.value)}
+  1099→                className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+  1100→              />
+  1101→              <input
+  1102→                type="password"
+  1103→                placeholder="Password baru (min. 6 karakter)"
+  1104→                value={newPwd}
+  1105→                onChange={(e) => setNewPwd(e.target.value)}
+  1106→                className="w-full px-3 py-2 border rounded-lg text-sm"
+  1107→              />
+  1108→            </div>
+  1109→            {pwdMsg && (
+  1110→              <p
+  1111→                className={`text-sm ${
+  1112→                  pwdMsg.includes("berhasil")
+  1113→                    ? "text-emerald-600"
+  1114→                    : "text-red-600"
+  1115→                }`}
+  1116→              >
+  1117→                {pwdMsg}
+  1118→              </p>
+  1119→            )}
+  1120→            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500">
+  1121→              <p className="font-medium mb-1">Info Server</p>
+  1122→              <p>
+  1123→                Mode:{" "}
+  1124→                {isServerMode
+  1125→                  ? "Server (data tersimpan)"
+  1126→                  : "Lokal (data sementara)"}
+  1127→              </p>
+  1128→              <p>Total Periode: {snapshots.length}</p>
+  1129→            </div>
+  1130→          </div>
+  1131→          <DialogFooter>
+  1132→            <Button
+  1133→              variant="outline"
+  1134→              onClick={() => setShowSettings(false)}
+  1135→            >
+  1136→              Tutup
+  1137→            </Button>
+  1138→            <Button
+  1139→              onClick={handleChangePassword}
+  1140→              disabled={!currentPwd || !newPwd}
+  1141→            >
+  1142→              Simpan Password
+  1143→            </Button>
+  1144→          </DialogFooter>
+  1145→        </DialogContent>
+  1146→      </Dialog>
+  1147→
+  1148→      {/* ═══ DELETE CONFIRMATION DIALOG ═══ */}
+  1149→      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+  1150→        <DialogContent className="sm:max-w-sm">
+  1151→          <DialogHeader>
+  1152→            <DialogTitle>Hapus Periode</DialogTitle>
+  1153→          </DialogHeader>
+  1154→          <p className="text-sm text-gray-600">
+  1155→            Yakin ingin menghapus data periode{" "}
+  1156→            <strong>
+  1157→              {snapshots.find((s) => s.dateSort === deleteDate)?.date ||
+  1158→                deleteDate}
+  1159→            </strong>
+  1160→            ? Tindakan ini tidak bisa dibatalkan.
+  1161→          </p>
+  1162→          <DialogFooter>
+  1163→            <Button
+  1164→              variant="outline"
+  1165→              onClick={() => setShowDeleteConfirm(false)}
+  1166→            >
+  1167→              Batal
+  1168→            </Button>
+  1169→            <Button variant="destructive" onClick={handleDeleteSnapshot}>
+  1170→              Hapus
+  1171→            </Button>
+  1172→          </DialogFooter>
+  1173→        </DialogContent>
+  1174→      </Dialog>
+  1175→
+  1176→      {/* ═══ PDF GENERATING OVERLAY ═══ */}
+  1177→      {isGeneratingPdf && (
+  1178→        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+  1179→          <div className="bg-white rounded-2xl px-6 py-5 flex flex-col items-center gap-3 shadow-2xl">
+  1180→            <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
+  1181→            <p className="text-sm font-semibold text-gray-700">Membuat PDF...</p>
+  1182→            <p className="text-xs text-gray-400">Mohon tunggu sebentar</p>
+  1183→          </div>
+  1184→        </div>
+  1185→      )}
+  1186→    </div>
+  1187→  );
+  1188→}

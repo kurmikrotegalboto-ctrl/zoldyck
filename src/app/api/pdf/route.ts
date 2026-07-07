@@ -1,182 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jsPDF } from "jspdf";
 
 export const maxDuration = 30;
 
-// ── Minimal PDF builder (zero dependencies, pure string concatenation) ──
-
-class SimplePDF {
-  private buf: string[] = [];
-  private objCount = 0;
-  private pages: { objs: string[]; height: number }[] = [];
-  private currentPage: string[] = [];
-  private currentY = 0;
-  private pageHeight = 210;
-  private pageWidth = 297;
-  private margin = 10;
-  private fontSize = 7;
-  private fontName = "Helvetica";
-
-  private addObj(content: string): number {
-    const n = ++this.objCount;
-    this.buf.push(`${n} 0 obj\n${content}\nendobj`);
-    return n;
-  }
-
-  newPage() {
-    if (this.currentPage.length > 0) {
-      this.pages.push({ objs: this.currentPage, height: this.pageHeight });
-    }
-    this.currentPage = [];
-    this.currentY = this.pageHeight - this.margin;
-  }
-
-  setFontSize(size: number) { this.fontSize = size; }
-  get currentHeight() { return this.currentY; }
-
-  private escText(s: string): string {
-    return s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-  }
-
-  text(text: string, x: number, y: number, opts?: { align?: "left" | "center" | "right"; bold?: boolean }) {
-    const font = opts?.bold ? "Helvetica-Bold" : this.fontName;
-    const fs = this.fontSize;
-    let tx = x;
-    if (opts?.align === "center") tx = x; // caller handles centering
-    if (opts?.align === "right") tx = x; // caller handles right-align
-    const pdfY = y; // already in PDF coords (bottom-up)
-    this.currentPage.push(`BT /${font} ${fs} Tf ${tx} ${pdfY} Td (${this.escText(text)}) Tj ET`);
-  }
-
-  rect(x: number, y: number, w: number, h: number, fillColor?: [number, number, number], strokeColor?: [number, number, number]) {
-    const ops: string[] = [];
-    if (fillColor) {
-      ops.push(`${fillColor[0] / 255} ${fillColor[1] / 255} ${fillColor[2] / 255} rg`);
-    }
-    if (strokeColor) {
-      ops.push(`${strokeColor[0] / 255} ${strokeColor[1] / 255} ${strokeColor[2] / 255} RG 0.3 w`);
-    }
-    ops.push(`${x} ${y} ${w} ${h} re`);
-    if (fillColor && strokeColor) ops.push("B");
-    else if (fillColor) ops.push("f");
-    else if (strokeColor) ops.push("S");
-    this.currentPage.push(ops.join(" "));
-  }
-
-  line(x1: number, y1: number, x2: number, y2: number, color?: [number, number, number]) {
-    if (color) {
-      this.currentPage.push(`${color[0] / 255} ${color[1] / 255} ${color[2] / 255} RG 0.3 w`);
-    }
-    this.currentPage.push(`${x1} ${y1} m ${x2} ${y2} l S`);
-  }
-
-  setFont(bold: boolean) {
-    this.fontName = bold ? "Helvetica-Bold" : "Helvetica";
-  }
-
-  getYForText(rowH: number): number {
-    // Returns PDF Y coordinate (bottom-up) for current position
-    return this.currentY;
-  }
-
-  advanceY(amount: number) {
-    this.currentY -= amount;
-  }
-
-  needsNewPage(neededHeight: number): boolean {
-    return this.currentY - neededHeight < this.margin + 10;
-  }
-
-  build(filename: string): Uint8Array {
-    this.newPage(); // flush last page
-
-    const catalogNum = 1;
-    const pagesNum = 2;
-
-    // Build page objects
-    const pageObjNums: number[] = [];
-    const contentObjNums: number[] = [];
-    const fontNums: [number, number] = [0, 0]; // [helvetica, helvetica-bold]
-
-    // Register fonts ( objs 3, 4 )
-    fontNums[0] = this.addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-    fontNums[1] = this.addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
-
-    // Build page content streams and page objects
-    for (const page of this.pages) {
-      const content = page.objs.join("\n");
-      const contentNum = this.addObj(
-        `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
-      );
-      contentObjNums.push(contentNum);
-
-      const pageNum = this.addObj(
-        `<< /Type /Page /Parent ${pagesNum} 0 R /MediaBox [0 0 ${this.pageWidth} ${page.height}] ` +
-        `/Contents ${contentNum} 0 R ` +
-        `/Resources << /Font << /F1 ${fontNums[0]} 0 R /F2 ${fontNums[1]} 0 R >> >> >>`
-      );
-      pageObjNums.push(pageNum);
-    }
-
-    // Pages object
-    const kids = pageObjNums.map(n => `${n} 0 R`).join(" ");
-    this.buf.splice(1, 0, `${pagesNum} 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${pageObjNums.length} >>\nendobj`);
-    // Re-number: we inserted at position 1, so shift all object numbers after 1
-    // Actually, let's just rebuild cleanly
-
-    // Clean rebuild with proper numbering
-    this.buf = [];
-    this.objCount = 0;
-
-    const obj1 = this.addObj("<< /Type /Catalog /Pages 2 0 R >>");
-    const obj2 = this.addObj(`<< /Type /Pages /Kids [${pageObjNums.map((_, i) => `${i + 4} 0 R`).join(" ")}] /Count ${this.pages.length} >>`);
-    const obj3 = this.addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-    const obj4 = this.addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
-
-    // Rebuild content streams and page objects
-    const newContentNums: number[] = [];
-    for (let i = 0; i < this.pages.length; i++) {
-      const content = this.pages[i].objs.join("\n");
-      const cn = this.addObj(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-      newContentNums.push(cn);
-
-      this.addObj(
-        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pages[i].height}] ` +
-        `/Contents ${cn} 0 R ` +
-        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`
-      );
-    }
-
-    // Assemble PDF
-    const objects = this.buf.join("\n");
-    let pdf = `%PDF-1.4\n`;
-    const offsets: number[] = [];
-
-    const lines = objects.split("\n");
-    for (const line of lines) {
-      if (line.match(/^\d+ 0 obj$/)) {
-        offsets.push(pdf.length);
-      }
-      pdf += line + "\n";
-    }
-
-    const xrefOffset = pdf.length;
-    pdf += `xref\n0 ${this.objCount + 1}\n`;
-    pdf += "0000000000 65535 f \n";
-    for (let i = 0; i < this.objCount; i++) {
-      pdf += `${String(offsets[i] || 0).padStart(10, "0")} 00000 n \n`;
-    }
-
-    pdf += `trailer\n<< /Size ${this.objCount + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-    const encoder = new TextEncoder();
-    return encoder.encode(pdf);
-  }
-}
-
-// ── KPI Data helpers ──
-
 import type { KpiUnit } from "@/lib/kpi-types";
 import { KOMPONEN_GROUPS, CAPPING_MAP, getKpiForSub } from "@/lib/kpi-types";
+
+// ── Color type helper ──
+type RGB = [number, number, number];
+
+// ── KPI Data helpers ──
 
 function formatNumber(n: number): string {
   if (n === 0) return "0";
@@ -238,11 +71,6 @@ function buildRows(unit: KpiUnit, prevUnit?: KpiUnit): RowData[] {
   return rows;
 }
 
-// Approximate text width (Helvetica ~0.52 * fontSize per char)
-function textWidth(text: string, fontSize: number): number {
-  return text.length * fontSize * 0.52;
-}
-
 // ── Main handler ──
 
 export async function POST(req: NextRequest) {
@@ -252,189 +80,326 @@ export async function POST(req: NextRequest) {
       unit: KpiUnit; unitLabel: string; date: string; prevUnit?: KpiUnit; compareLabel?: string;
     };
 
-    const pdf = new SimplePDF();
-    const m = pdf["margin"] as number;
-    const pw = pdf["pageWidth"] as number;
-    const ph = pdf["pageHeight"] as number;
+    // ── Create jsPDF document (A4 landscape, mm units) ──
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-    const GREEN = [0, 134, 61] as [number, number, number];
-    const WHITE = [255, 255, 255] as [number, number, number];
-    const LGRAY = [240, 240, 240] as [number, number, number];
-    const GRAY = [100, 100, 100] as [number, number, number];
-    const BLACK = [30, 30, 30] as [number, number, number];
+    const pw = 297;   // A4 landscape width
+    const ph = 210;   // A4 landscape height
+    const m = 8;      // margin
 
-    // Column widths (total ~277mm)
-    const colW = { no: 8, komp: 36, sub: 42, cap: 14, bobot: 14, rkap: 26, exceed: 26, real: 26, ach: 14, kem: 12, hari: 12, delta: 12, selRkap: 20, selEx: 20 };
-    const colKeys = Object.keys(colW) as (keyof typeof colW)[];
+    // Colors (RGB 0-255) — typed as tuples for safe spread
+    const GREEN: RGB = [0, 134, 61];
+    const WHITE: RGB = [255, 255, 255];
+    const LGRAY: RGB = [242, 242, 242];
+    const BLACK: RGB = [30, 30, 30];
+    const GRAY: RGB = [160, 160, 160];
+    const GREEN_LIGHT: RGB = [5, 150, 105];
+    const AMBER: RGB = [217, 119, 6];
+    const ORANGE: RGB = [234, 88, 12];
+    const RED: RGB = [220, 38, 38];
+    const GREEN_DELTA: RGB = [100, 220, 130];
+    const RED_DELTA: RGB = [255, 120, 120];
+
+    // Column layout (widths in mm)
+    const colW: Record<string, number> = {
+      no: 7, komp: 32, sub: 40, cap: 14, bobot: 12,
+      rkap: 26, exceed: 26, real: 26, ach: 14,
+      kem: 13, hari: 13, delta: 13,
+      selRkap: 22, selEx: 22,
+    };
     const totalCW = Object.values(colW).reduce((a, b) => a + b, 0);
 
-    function colX(...keys: (keyof typeof colW)[]) { return m + keys.reduce((s, k) => s + colW[k], 0); }
+    const colX = (...keys: string[]): number =>
+      m + keys.reduce((s, k) => s + (colW[k] || 0), 0);
 
     const rows = buildRows(unit, prevUnit);
-    const headerH = 12;
-    const rowH = 6.5;
+    const headerH = 9;
+    const rowH = 5.8;
+    const pageHeaderH = 28;
+    const footerH = 8;
+    const usableH = ph - m - footerH;
 
-    function drawHeader() {
-      const y = pdf.currentHeight;
-      // Green header background
-      pdf.rect(m, y - headerH, totalCW, headerH, GREEN);
+    // ── Helper: set text color from tuple ──
+    const setColor = (c: RGB) => { doc.setTextColor(c[0], c[1], c[2]); };
+    const setFill = (c: RGB) => { doc.setFillColor(c[0], c[1], c[2]); };
+    const setDraw = (c: RGB) => { doc.setDrawColor(c[0], c[1], c[2]); };
 
-      pdf.setFontSize(6.5);
-      const headers = [
-        { t: "NO", k: ["no"] }, { t: "KOMPONEN KPI", k: ["no", "komp"] },
-        { t: "SUB KOMPONEN KPI", k: ["no", "komp", "sub"] },
-        { t: "CAPPING", k: ["no", "komp", "sub", "cap"] },
-        { t: "BOBOT", k: ["no", "komp", "sub", "cap", "bobot"] },
-        { t: "TARGET", k: ["no", "komp", "sub", "cap", "bobot", "rkap"], span: 2 },
-        { t: "REALISASI", k: ["no", "komp", "sub", "cap", "bobot", "rkap", "exceed"] },
-        { t: "ACH(%)", k: ["no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real"] },
-        { t: "KPI TAHUNAN", k: ["no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach"], span: 2 },
-        { t: "DELTA", k: ["no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem"] },
-        { t: "SELISIH TARGET", k: ["no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta"], span: 2 },
+    // ── Helper: draw table header row ──
+    const drawTableHeader = (y: number): number => {
+      setFill(GREEN);
+      doc.rect(m, y, totalCW, headerH, "F");
+
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "bold");
+      setColor(WHITE);
+
+      const headers: { t: string; x: number }[] = [
+        { t: "NO", x: colX("no") },
+        { t: "KOMPONEN KPI", x: colX("komp") },
+        { t: "SUB KOMPONEN KPI", x: colX("sub") },
+        { t: "CAPPING", x: colX("cap") },
+        { t: "BOBOT", x: colX("bobot") },
+        { t: "TARGET", x: colX("rkap") },
+        { t: "REALISASI", x: colX("real") },
+        { t: "ACH(%)", x: colX("ach") },
+        { t: "KPI TAHUNAN", x: colX("kem") },
+        { t: "DELTA", x: colX("delta") },
+        { t: "SELISIH TARGET", x: colX("selRkap") },
       ];
 
       headers.forEach((h) => {
-        const x = colX(...h.k);
-        const w = h.span ? colKeys.slice(colKeys.indexOf(h.k[0]) + 1).slice(0, h.span).reduce((s, k) => s + colW[k], 0) + colW[h.k[0]] : colW[h.k[h.k.length - 1]];
-        // Actually simpler: just use the total width from this col to the next header's start
-        pdf.text(h.t, x + 1, y - 3.5, { bold: true });
+        doc.text(h.t, h.x + 1, y + headerH / 2 + 1.5);
       });
 
-      pdf.currentY -= headerH;
-    }
+      setColor(BLACK);
+      return y + headerH;
+    };
 
-    function drawPageHeader() {
-      // Title
-      pdf.setFontSize(14);
-      pdf.setFont(true);
-      pdf.text("MONEV KPI / TEGALBOTO 2026", m, ph - m);
+    // ── Helper: draw page header ──
+    const drawPageHeader = (y: number): number => {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      setColor(BLACK);
+      doc.text("MONEV KPI / TEGALBOTO 2026", m, y + 5);
 
-      pdf.setFontSize(8);
-      pdf.setFont(false);
-      pdf.text("Laporan Monitoring Kinerja", m, ph - m - 6);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Laporan Monitoring Kinerja", m, y + 10);
 
-      // Period right-aligned
-      pdf.setFontSize(7);
-      pdf.text("Periode", pw - m - 50, ph - m);
-      pdf.setFontSize(10);
-      pdf.setFont(true);
-      pdf.text(date, pw - m - 50, ph - m - 6);
+      // Period (right side)
+      doc.setFontSize(7);
+      doc.text("Periode", pw - m - 55, y + 5);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(date, pw - m - 55, y + 10);
 
       // Green line
-      pdf.line(m, ph - m - 11, pw - m, ph - m - 11, GREEN);
+      setDraw(GREEN);
+      doc.setLineWidth(0.5);
+      doc.line(m, y + 13, pw - m, y + 13);
 
-      // Unit name
-      pdf.setFontSize(10);
-      pdf.text(unitLabel, m, ph - m - 16);
+      // Unit name + KPI badge
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(unitLabel, m, y + 18);
 
-      // KPI score
+      // KPI score badge
       const kpiText = unit.total_kpi.toFixed(2);
-      const kpiColor = unit.total_kpi >= 85 ? [5, 150, 105] : unit.total_kpi >= 70 ? [217, 119, 6] : unit.total_kpi >= 55 ? [234, 88, 12] : [220, 38, 38];
-      const bw = textWidth(kpiText, 10) + 8;
-      const badgeX = m + textWidth(unitLabel, 10) + 6;
-      pdf.rect(badgeX, ph - m - 20, bw, 6, kpiColor as [number, number, number]);
-      pdf.text(kpiText, badgeX + 4, ph - m - 16.5);
+      const kpiColor: RGB = unit.total_kpi >= 85
+        ? GREEN_LIGHT
+        : unit.total_kpi >= 70
+        ? AMBER
+        : unit.total_kpi >= 55
+        ? ORANGE
+        : RED;
+
+      const labelW = doc.getTextWidth(unitLabel);
+      const scoreW = doc.getTextWidth(kpiText);
+      const badgeX = m + labelW + 4;
+      const badgeW = scoreW + 6;
+      const badgeY = y + 14.5;
+
+      setFill(kpiColor);
+      doc.roundedRect(badgeX, badgeY, badgeW, 5.5, 1, 1, "F");
+      doc.setFontSize(9);
+      setColor(WHITE);
+      doc.text(kpiText, badgeX + 3, badgeY + 4);
+      setColor(BLACK);
 
       if (compareLabel) {
-        pdf.setFontSize(7);
-        pdf.setFont(false);
-        pdf.text(`Bandingkan: ${compareLabel}`, badgeX + bw + 6, ph - m - 16);
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Bandingkan: ${compareLabel}`, badgeX + badgeW + 4, y + 18);
       }
 
-      pdf.setFontSize(7);
-      pdf.text(`${unit.components.length} komponen KPI`, m, ph - m - 22);
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${unit.components.length} komponen KPI`, m, y + 23);
 
-      pdf.currentY = ph - m - 30;
-    }
+      return y + pageHeaderH;
+    };
 
-    function drawFooter(pageNum: number) {
-      const fy = m + 4;
-      pdf.line(m, fy + 4, pw - m, fy + 4, [200, 200, 200]);
-      pdf.setFontSize(5);
-      pdf.text("MONEV KPI TEGALBOTO 2026 - Dokumen otomatis", m, fy);
-      pdf.text(`Hal ${pageNum}`, pw - m - 15, fy);
-    }
+    // ── Helper: draw footer ──
+    const drawFooter = (pageNum: number): void => {
+      const fy = ph - 5;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      doc.line(m, fy - 2, pw - m, fy - 2);
+      doc.setFontSize(5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(130, 130, 130);
+      doc.text("MONEV KPI TEGALBOTO 2026 - Dokumen otomatis", m, fy);
+      doc.text(`Halaman ${pageNum}`, pw - m - 20, fy);
+      setColor(BLACK);
+    };
 
-    // ── Build PDF ──
-    drawPageHeader();
-    drawHeader();
-
+    // ── Build PDF pages ──
+    let y = drawPageHeader(m);
+    y = drawTableHeader(y);
     let pageNum = 1;
-    drawFooter(pageNum);
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
 
-      if (pdf.needsNewPage(rowH + 2)) {
-        pdf.newPage();
-        pageNum++;
-        drawHeader();
+      // Check if we need a new page
+      if (y + rowH > usableH) {
         drawFooter(pageNum);
+        doc.addPage();
+        pageNum++;
+        y = drawPageHeader(m);
+        y = drawTableHeader(y);
       }
-
-      const y = pdf.currentHeight;
 
       if (row.isTotal) {
-        pdf.rect(m, y - rowH, totalCW, rowH, GREEN);
-        pdf.setFontSize(7);
-        pdf.text("TOTAL", m + 2, y - 2.5);
-        pdf.text("100", colX("no", "komp", "sub", "cap") + 1, y - 2.5);
-        pdf.text(row.kem, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach") + 2, y - 2.5);
-        pdf.text(row.hari, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem") + 2, y - 2.5);
-        pdf.text(row.delta, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta") + 2, y - 2.5);
+        // Total row - green background
+        setFill(GREEN);
+        doc.rect(m, y, totalCW, rowH, "F");
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        setColor(WHITE);
+        doc.text("TOTAL", m + 2, y + rowH / 2 + 1.5);
+        doc.text("100", colX("bobot") + 2, y + rowH / 2 + 1.5);
+        doc.text(row.kem, colX("kem") + 2, y + rowH / 2 + 1.5);
+        doc.text(row.hari, colX("hari") + 2, y + rowH / 2 + 1.5);
+
+        // Color the delta
+        if (row.deltaVal > 0) setColor(GREEN_DELTA);
+        else if (row.deltaVal < 0) setColor(RED_DELTA);
+        doc.text(row.delta, colX("delta") + 2, y + rowH / 2 + 1.5);
+
+        setColor(BLACK);
       } else {
-        if (i % 2 === 1) pdf.rect(m, y - rowH, totalCW, rowH, LGRAY);
-        pdf.line(m, y - rowH, m + totalCW, y - rowH, [230, 230, 230]);
+        // Alternating row background
+        if (i % 2 === 1) {
+          setFill(LGRAY);
+          doc.rect(m, y, totalCW, rowH, "F");
+        }
 
-        pdf.setFontSize(5.5);
-        if (row.no) pdf.setFont(true); else pdf.setFont(false);
-        pdf.text(row.no, colX("no") + 3, y - 2.5);
+        // Bottom border line
+        doc.setDrawColor(225, 225, 225);
+        doc.setLineWidth(0.1);
+        doc.line(m, y + rowH, m + totalCW, y + rowH);
 
-        if (row.komp) { pdf.setFont(true); pdf.text(row.komp, colX("no", "komp") + 1, y - 2.5); }
-        pdf.setFont(false);
-        pdf.text(row.sub, colX("no", "komp", "sub") + 1, y - 2.5);
+        const textY = y + rowH / 2 + 1.3;
+        const txtColor = row.isInactive ? GRAY : BLACK;
 
-        pdf.text(row.cap, colX("no", "komp", "sub", "cap") + 3, y - 2.5);
-        if (!row.isInactive) pdf.setFont(true);
-        pdf.text(row.bobot, colX("no", "komp", "sub", "cap", "bobot") + 3, y - 2.5);
+        // NO column
+        doc.setFontSize(5);
+        if (row.no) {
+          doc.setFont("helvetica", "bold");
+          setColor(BLACK);
+          doc.text(row.no, colX("no") + 2, textY);
+        }
 
-        pdf.setFont(false);
-        // Right-aligned numbers
-        const rkapX = colX("no", "komp", "sub", "cap", "bobot", "rkap") + colW.rkap - 2;
-        const exceedX = colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed") + colW.exceed - 2;
-        const realX = colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real") + colW.real - 2;
-        pdf.text(row.rkap, rkapX, y - 2.5);
-        pdf.text(row.exceed, exceedX, y - 2.5);
-        pdf.text(row.real, realX, y - 2.5);
+        // KOMPONEN column
+        if (row.komp) {
+          doc.setFont("helvetica", "bold");
+          setColor(BLACK);
+          doc.text(row.komp, colX("komp") + 1, textY);
+        }
 
-        // ACH
-        if (!row.isInactive) pdf.setFont(row.achPct >= 100);
-        pdf.text(row.ach, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach") + 3, y - 2.5);
+        // SUB KOMPONEN column
+        doc.setFont("helvetica", "normal");
+        setColor(txtColor);
+        doc.text(row.sub, colX("sub") + 1, textY, { maxWidth: colW.sub - 2 });
 
-        pdf.setFont(false);
-        pdf.text(row.kem, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem") + 2, y - 2.5);
-        if (!row.isInactive) pdf.setFont(true);
-        pdf.text(row.hari, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari") + 2, y - 2.5);
+        // CAPPING column
+        setColor(GRAY);
+        doc.text(row.cap, colX("cap") + 2, textY);
 
-        pdf.setFont(false);
-        pdf.text(row.delta, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta") + 2, y - 2.5);
-        pdf.text(row.selRkap, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta", "selRkap") + colW.selRkap - 2, y - 2.5);
-        pdf.text(row.selEx, colX("no", "komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta", "selRkap", "selEx") + colW.selEx - 2, y - 2.5);
+        // BOBOT column
+        if (!row.isInactive) doc.setFont("helvetica", "bold");
+        setColor(txtColor);
+        doc.text(row.bobot, colX("bobot") + 2, textY);
+
+        // Right-aligned numeric columns
+        doc.setFont("helvetica", "normal");
+        setColor(txtColor);
+
+        // RKAP
+        doc.text(row.rkap, colX("rkap") + colW.rkap - 2, textY, { align: "right" });
+        // EXCEED
+        doc.text(row.exceed, colX("exceed") + colW.exceed - 2, textY, { align: "right" });
+        // REALISASI
+        doc.text(row.real, colX("real") + colW.real - 2, textY, { align: "right" });
+
+        // ACH %
+        if (!row.isInactive) {
+          if (row.achPct >= 100) {
+            setColor(GREEN_LIGHT);
+            doc.setFont("helvetica", "bold");
+          } else if (row.achPct >= 80) {
+            setColor(AMBER);
+          } else {
+            setColor(RED);
+          }
+        } else {
+          setColor(GRAY);
+        }
+        doc.text(row.ach, colX("ach") + 2, textY);
+
+        // KPI TAHUNAN - KEMARIN
+        doc.setFont("helvetica", "normal");
+        setColor(txtColor);
+        doc.text(row.kem, colX("kem") + 2, textY);
+
+        // KPI TAHUNAN - HARI INI
+        if (!row.isInactive) doc.setFont("helvetica", "bold");
+        doc.text(row.hari, colX("hari") + 2, textY);
+
+        // DELTA
+        doc.setFont("helvetica", "normal");
+        if (!row.isInactive) {
+          if (row.deltaVal > 0) setColor(GREEN_LIGHT);
+          else if (row.deltaVal < 0) setColor(RED);
+          else setColor(BLACK);
+        } else {
+          setColor(GRAY);
+        }
+        doc.text(row.delta, colX("delta") + 2, textY);
+
+        // SELISIH TARGET RKAP
+        if (!row.isInactive) {
+          setColor(row.selRkapVal >= 0 ? GREEN_LIGHT : RED);
+        } else {
+          setColor(GRAY);
+        }
+        doc.text(row.selRkap, colX("selRkap") + colW.selRkap - 2, textY, { align: "right" });
+
+        // SELISIH TARGET EXCEED
+        if (!row.isInactive) {
+          setColor(row.selExVal >= 0 ? GREEN_LIGHT : RED);
+        } else {
+          setColor(GRAY);
+        }
+        doc.text(row.selEx, colX("selEx") + colW.selEx - 2, textY, { align: "right" });
+
+        setColor(BLACK);
       }
 
-      pdf.currentY -= rowH;
+      y += rowH;
     }
 
+    // Final footer
+    drawFooter(pageNum);
+
+    // ── Output PDF ──
     const unitShort = unitLabel.replace(/\s+/g, "_");
     const dateFile = date.replace(/\s+/g, "_");
     const filename = `KPI_${unitShort}_${dateFile}.pdf`;
 
-    const pdfBytes = pdf.build(filename);
+    const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
 
     return new NextResponse(pdfBytes, {
+      status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(pdfBytes.byteLength),
       },
     });
   } catch (error) {
