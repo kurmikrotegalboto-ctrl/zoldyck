@@ -80,318 +80,337 @@ export async function POST(req: NextRequest) {
       unit: KpiUnit; unitLabel: string; date: string; prevUnit?: KpiUnit; compareLabel?: string;
     };
 
-    // ── Create jsPDF document (A4 landscape, mm units) ──
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
-    const pw = 297;   // A4 landscape width
-    const ph = 210;   // A4 landscape height
-    const m = 8;      // margin
+    const pw = 297;
+    const ph = 210;
+    const m = 5; // tight margin
 
-    // Colors (RGB 0-255) — typed as tuples for safe spread
+    // ── Colors ──
     const GREEN: RGB = [0, 134, 61];
     const WHITE: RGB = [255, 255, 255];
-    const LGRAY: RGB = [242, 242, 242];
+    const LGRAY: RGB = [245, 245, 245];
     const BLACK: RGB = [30, 30, 30];
     const GRAY: RGB = [160, 160, 160];
-    const GREEN_LIGHT: RGB = [5, 150, 105];
+    const GREEN_L: RGB = [5, 150, 105];
     const AMBER: RGB = [217, 119, 6];
     const ORANGE: RGB = [234, 88, 12];
     const RED: RGB = [220, 38, 38];
-    const GREEN_DELTA: RGB = [100, 220, 130];
-    const RED_DELTA: RGB = [255, 120, 120];
 
-    // Column layout (widths in mm)
-    const colW: Record<string, number> = {
-      no: 7, komp: 32, sub: 40, cap: 14, bobot: 12,
-      rkap: 26, exceed: 26, real: 26, ach: 14,
-      kem: 13, hari: 13, delta: 13,
-      selRkap: 22, selEx: 22,
+    // ── Column widths — total must equal pw - 2*m = 287 ──
+    const cols = {
+      no:     6,
+      komp:   28,
+      sub:    46,
+      cap:    13,
+      bobot:  10,
+      rkap:   23,
+      exceed: 23,
+      real:   23,
+      ach:    15,
+      kem:    14,
+      hari:   14,
+      delta:  14,
+      selRk:  22,
+      selEx:  22,
     };
-    const totalCW = Object.values(colW).reduce((a, b) => a + b, 0);
+    const totalCW = Object.values(cols).reduce((a, b) => a + b, 0); // 273
 
-    const colX = (...keys: string[]): number =>
-      m + keys.reduce((s, k) => s + (colW[k] || 0), 0);
+    // Left-align x position for each column
+    const cx = (key: string): number =>
+      m + Object.entries(cols).slice(0, Object.keys(cols).indexOf(key)).reduce((s, [, v]) => s + v, 0);
+
+    // ── Helpers ──
+    const sc = (c: RGB) => { doc.setTextColor(c[0], c[1], c[2]); };
+    const sf = (c: RGB) => { doc.setFillColor(c[0], c[1], c[2]); };
+
+    // Truncate text to fit column width
+    const fitText = (text: string, maxW: number, fontSize: number): string => {
+      doc.setFontSize(fontSize);
+      if (doc.getTextWidth(text) <= maxW) return text;
+      let t = text;
+      while (t.length > 0 && doc.getTextWidth(t + "...") > maxW) t = t.slice(0, -1);
+      return t + "...";
+    };
+
+    // ── Layout constants ──
+    const headerAreaH = 16;  // compact page header
+    const tableHeadH = 11;   // 2-row table header
+    const rowH = 5.2;        // compact data row
+    const footerH = 4;
+    const dataAreaTop = m + headerAreaH + tableHeadH;
+    const dataAreaBottom = ph - m - footerH;
 
     const rows = buildRows(unit, prevUnit);
-    const headerH = 9;
-    const rowH = 5.8;
-    const pageHeaderH = 28;
-    const footerH = 8;
-    const usableH = ph - m - footerH;
+    const numRows = rows.length;
 
-    // ── Helper: set text color from tuple ──
-    const setColor = (c: RGB) => { doc.setTextColor(c[0], c[1], c[2]); };
-    const setFill = (c: RGB) => { doc.setFillColor(c[0], c[1], c[2]); };
-    const setDraw = (c: RGB) => { doc.setDrawColor(c[0], c[1], c[2]); };
+    // ── PAGE HEADER ──
+    let y = m;
 
-    // ── Helper: draw table header row ──
-    const drawTableHeader = (y: number): number => {
-      setFill(GREEN);
-      doc.rect(m, y, totalCW, headerH, "F");
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    sc(BLACK);
+    doc.text("MONEV KPI / TEGALBOTO 2026", m, y + 4);
 
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("Laporan Monitoring Kinerja", m, y + 8);
+
+    // Period (right)
+    doc.setFontSize(6);
+    doc.text("Periode", pw - m - 50, y + 4);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(date, pw - m - 50, y + 8);
+
+    // Green line
+    doc.setDrawColor(...GREEN);
+    doc.setLineWidth(0.4);
+    doc.line(m, y + 10, pw - m, y + 10);
+
+    // Unit + KPI badge
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(unitLabel, m, y + 14);
+
+    const kpiText = unit.total_kpi.toFixed(2);
+    const kpiColor: RGB = unit.total_kpi >= 85 ? GREEN_L : unit.total_kpi >= 70 ? AMBER : unit.total_kpi >= 55 ? ORANGE : RED;
+    const labelW = doc.getTextWidth(unitLabel);
+    const scoreW = doc.getTextWidth(kpiText);
+    const badgeX = m + labelW + 3;
+    const badgeW = scoreW + 6;
+
+    sf(kpiColor);
+    doc.roundedRect(badgeX, y + 10.8, badgeW, 5, 1, 1, "F");
+    doc.setFontSize(8);
+    sc(WHITE);
+    doc.text(kpiText, badgeX + 3, y + 14);
+
+    if (compareLabel) {
+      sc(BLACK);
       doc.setFontSize(5.5);
-      doc.setFont("helvetica", "bold");
-      setColor(WHITE);
-
-      const headers: { t: string; x: number }[] = [
-        { t: "NO", x: colX("no") },
-        { t: "KOMPONEN KPI", x: colX("komp") },
-        { t: "SUB KOMPONEN KPI", x: colX("sub") },
-        { t: "CAPPING", x: colX("cap") },
-        { t: "BOBOT", x: colX("bobot") },
-        { t: "TARGET", x: colX("rkap") },
-        { t: "REALISASI", x: colX("real") },
-        { t: "ACH(%)", x: colX("ach") },
-        { t: "KPI TAHUNAN", x: colX("kem") },
-        { t: "DELTA", x: colX("delta") },
-        { t: "SELISIH TARGET", x: colX("selRkap") },
-      ];
-
-      headers.forEach((h) => {
-        doc.text(h.t, h.x + 1, y + headerH / 2 + 1.5);
-      });
-
-      setColor(BLACK);
-      return y + headerH;
-    };
-
-    // ── Helper: draw page header ──
-    const drawPageHeader = (y: number): number => {
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      setColor(BLACK);
-      doc.text("MONEV KPI / TEGALBOTO 2026", m, y + 5);
-
-      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.text("Laporan Monitoring Kinerja", m, y + 10);
+      doc.text(`Bandingkan: ${compareLabel}`, badgeX + badgeW + 3, y + 14);
+    }
 
-      // Period (right side)
-      doc.setFontSize(7);
-      doc.text("Periode", pw - m - 55, y + 5);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(date, pw - m - 55, y + 10);
+    // ── TABLE HEADER (2 rows) ──
+    y = m + headerAreaH;
+    sf(GREEN);
+    doc.rect(m, y, totalCW, tableHeadH, "F");
 
-      // Green line
-      setDraw(GREEN);
-      doc.setLineWidth(0.5);
-      doc.line(m, y + 13, pw - m, y + 13);
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "bold");
+    sc(WHITE);
 
-      // Unit name + KPI badge
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(unitLabel, m, y + 18);
+    // Row 1: merged group headers
+    const r1y = y + 4;
+    doc.text("NO", cx("no") + 1, r1y);
+    doc.text("KOMPONEN", cx("komp") + 1, r1y);
+    doc.text("SUB KOMPONEN", cx("sub") + 1, r1y);
+    doc.text("CAPPING", cx("cap") + 1, r1y);
+    doc.text("BOBOT", cx("bobot") + 1, r1y);
 
-      // KPI score badge
-      const kpiText = unit.total_kpi.toFixed(2);
-      const kpiColor: RGB = unit.total_kpi >= 85
-        ? GREEN_LIGHT
-        : unit.total_kpi >= 70
-        ? AMBER
-        : unit.total_kpi >= 55
-        ? ORANGE
-        : RED;
+    // TARGET spans rkap + exceed
+    const targetCenterX = cx("rkap") + (cols.rkap + cols.exceed) / 2;
+    doc.text("TARGET", targetCenterX, r1y, { align: "center" });
+    doc.text("REALISASI", cx("real") + cols.real / 2, r1y, { align: "center" });
+    doc.text("ACH", cx("ach") + cols.ach / 2, r1y, { align: "center" });
 
-      const labelW = doc.getTextWidth(unitLabel);
-      const scoreW = doc.getTextWidth(kpiText);
-      const badgeX = m + labelW + 4;
-      const badgeW = scoreW + 6;
-      const badgeY = y + 14.5;
+    // KPI TAHUNAN spans kem + hari
+    const kpiCenterX = cx("kem") + (cols.kem + cols.hari) / 2;
+    doc.text("KPI TAHUNAN", kpiCenterX, r1y, { align: "center" });
 
-      setFill(kpiColor);
-      doc.roundedRect(badgeX, badgeY, badgeW, 5.5, 1, 1, "F");
-      doc.setFontSize(9);
-      setColor(WHITE);
-      doc.text(kpiText, badgeX + 3, badgeY + 4);
-      setColor(BLACK);
+    doc.text("DELTA", cx("delta") + cols.delta / 2, r1y, { align: "center" });
 
-      if (compareLabel) {
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Bandingkan: ${compareLabel}`, badgeX + badgeW + 4, y + 18);
-      }
+    // SELISIH TARGET spans selRk + selEx
+    const selCenterX = cx("selRk") + (cols.selRk + cols.selEx) / 2;
+    doc.text("SELISIH TARGET", selCenterX, r1y, { align: "center" });
 
-      doc.setFontSize(6);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${unit.components.length} komponen KPI`, m, y + 23);
+    // Sub-header divider
+    doc.setDrawColor(0, 100, 40);
+    doc.setLineWidth(0.2);
+    doc.line(m, y + 5.5, m + totalCW, y + 5.5);
 
-      return y + pageHeaderH;
-    };
+    // Row 2: sub-headers
+    const r2y = y + 9;
+    doc.text("(%)", cx("ach") + cols.ach / 2, r2y, { align: "center" });
+    doc.text("KEMARIN", cx("kem") + cols.kem / 2, r2y, { align: "center" });
+    doc.text("HARI INI", cx("hari") + cols.hari / 2, r2y, { align: "center" });
+    doc.text("RKAP", cx("rkap") + cols.rkap / 2, r2y, { align: "center" });
+    doc.text("EXCEED", cx("exceed") + cols.exceed / 2, r2y, { align: "center" });
+    doc.text("RKAP", cx("selRk") + cols.selRk / 2, r2y, { align: "center" });
+    doc.text("EXCEED", cx("selEx") + cols.selEx / 2, r2y, { align: "center" });
 
-    // ── Helper: draw footer ──
-    const drawFooter = (pageNum: number): void => {
-      const fy = ph - 5;
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.2);
-      doc.line(m, fy - 2, pw - m, fy - 2);
-      doc.setFontSize(5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(130, 130, 130);
-      doc.text("MONEV KPI TEGALBOTO 2026 - Dokumen otomatis", m, fy);
-      doc.text(`Halaman ${pageNum}`, pw - m - 20, fy);
-      setColor(BLACK);
-    };
+    // Thin border around header
+    doc.setDrawColor(0, 100, 40);
+    doc.setLineWidth(0.3);
+    doc.rect(m, y, totalCW, tableHeadH, "S");
 
-    // ── Build PDF pages ──
-    let y = drawPageHeader(m);
-    y = drawTableHeader(y);
-    let pageNum = 1;
+    // Vertical dividers in header
+    const vDividers = ["komp", "sub", "cap", "bobot", "rkap", "exceed", "real", "ach", "kem", "hari", "delta", "selRk", "selEx"];
+    vDividers.forEach((key) => {
+      doc.line(cx(key), y, cx(key), y + tableHeadH);
+    });
 
-    for (let i = 0; i < rows.length; i++) {
+    sc(BLACK);
+
+    // ── DATA ROWS ──
+    y = dataAreaTop;
+
+    for (let i = 0; i < numRows; i++) {
       const row = rows[i];
-
-      // Check if we need a new page
-      if (y + rowH > usableH) {
-        drawFooter(pageNum);
-        doc.addPage();
-        pageNum++;
-        y = drawPageHeader(m);
-        y = drawTableHeader(y);
-      }
+      const textY = y + rowH / 2 + 1.1;
 
       if (row.isTotal) {
-        // Total row - green background
-        setFill(GREEN);
+        // ── TOTAL ROW ──
+        sf(GREEN);
         doc.rect(m, y, totalCW, rowH, "F");
         doc.setFontSize(6);
         doc.setFont("helvetica", "bold");
-        setColor(WHITE);
-        doc.text("TOTAL", m + 2, y + rowH / 2 + 1.5);
-        doc.text("100", colX("bobot") + 2, y + rowH / 2 + 1.5);
-        doc.text(row.kem, colX("kem") + 2, y + rowH / 2 + 1.5);
-        doc.text(row.hari, colX("hari") + 2, y + rowH / 2 + 1.5);
+        sc(WHITE);
+        doc.text("TOTAL", cx("komp") + 1, textY);
+        doc.text("100", cx("bobot") + 1, textY);
+        doc.text(row.kem, cx("kem") + cols.kem / 2, textY, { align: "center" });
+        doc.text(row.hari, cx("hari") + cols.hari / 2, textY, { align: "center" });
 
-        // Color the delta
-        if (row.deltaVal > 0) setColor(GREEN_DELTA);
-        else if (row.deltaVal < 0) setColor(RED_DELTA);
-        doc.text(row.delta, colX("delta") + 2, y + rowH / 2 + 1.5);
-
-        setColor(BLACK);
+        if (row.deltaVal > 0) sc([100, 220, 130]);
+        else if (row.deltaVal < 0) sc([255, 120, 120]);
+        doc.text(row.delta, cx("delta") + cols.delta / 2, textY, { align: "center" });
+        sc(BLACK);
       } else {
-        // Alternating row background
+        // ── NORMAL ROW ──
+        // Alternating background
         if (i % 2 === 1) {
-          setFill(LGRAY);
+          sf(LGRAY);
           doc.rect(m, y, totalCW, rowH, "F");
         }
 
-        // Bottom border line
-        doc.setDrawColor(225, 225, 225);
-        doc.setLineWidth(0.1);
+        // Light bottom border
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.08);
         doc.line(m, y + rowH, m + totalCW, y + rowH);
 
-        const textY = y + rowH / 2 + 1.3;
-        const txtColor = row.isInactive ? GRAY : BLACK;
+        const tc = row.isInactive ? GRAY : BLACK;
+        const fSize = 5.5;
 
-        // NO column
-        doc.setFontSize(5);
+        // NO
         if (row.no) {
+          doc.setFontSize(fSize);
           doc.setFont("helvetica", "bold");
-          setColor(BLACK);
-          doc.text(row.no, colX("no") + 2, textY);
+          sc(BLACK);
+          doc.text(row.no, cx("no") + 1, textY);
         }
 
-        // KOMPONEN column
+        // KOMPONEN (bold, truncate)
         if (row.komp) {
+          doc.setFontSize(fSize);
           doc.setFont("helvetica", "bold");
-          setColor(BLACK);
-          doc.text(row.komp, colX("komp") + 1, textY);
+          sc(BLACK);
+          doc.text(fitText(row.komp, cols.komp - 2, fSize), cx("komp") + 1, textY);
         }
 
-        // SUB KOMPONEN column
+        // SUB KOMPONEN (truncate to fit)
+        doc.setFontSize(fSize);
         doc.setFont("helvetica", "normal");
-        setColor(txtColor);
-        doc.text(row.sub, colX("sub") + 1, textY, { maxWidth: colW.sub - 2 });
+        sc(tc);
+        doc.text(fitText(row.sub, cols.sub - 2, fSize), cx("sub") + 1, textY);
 
-        // CAPPING column
-        setColor(GRAY);
-        doc.text(row.cap, colX("cap") + 2, textY);
+        // CAPPING
+        doc.setFontSize(fSize - 0.5);
+        sc(GRAY);
+        doc.text(row.cap, cx("cap") + 1, textY);
 
-        // BOBOT column
+        // BOBOT
+        doc.setFontSize(fSize);
         if (!row.isInactive) doc.setFont("helvetica", "bold");
-        setColor(txtColor);
-        doc.text(row.bobot, colX("bobot") + 2, textY);
+        sc(tc);
+        doc.text(row.bobot, cx("bobot") + cols.bobot - 1, textY, { align: "right" });
 
-        // Right-aligned numeric columns
+        // TARGET RKAP
+        doc.setFontSize(fSize);
         doc.setFont("helvetica", "normal");
-        setColor(txtColor);
+        sc(tc);
+        doc.text(row.rkap, cx("rkap") + cols.rkap - 1, textY, { align: "right" });
 
-        // RKAP
-        doc.text(row.rkap, colX("rkap") + colW.rkap - 2, textY, { align: "right" });
-        // EXCEED
-        doc.text(row.exceed, colX("exceed") + colW.exceed - 2, textY, { align: "right" });
+        // TARGET EXCEED
+        doc.text(row.exceed, cx("exceed") + cols.exceed - 1, textY, { align: "right" });
+
         // REALISASI
-        doc.text(row.real, colX("real") + colW.real - 2, textY, { align: "right" });
+        doc.text(row.real, cx("real") + cols.real - 1, textY, { align: "right" });
 
         // ACH %
+        doc.setFontSize(fSize);
         if (!row.isInactive) {
-          if (row.achPct >= 100) {
-            setColor(GREEN_LIGHT);
-            doc.setFont("helvetica", "bold");
-          } else if (row.achPct >= 80) {
-            setColor(AMBER);
-          } else {
-            setColor(RED);
-          }
+          if (row.achPct >= 100) { sc(GREEN_L); doc.setFont("helvetica", "bold"); }
+          else if (row.achPct >= 80) { sc(AMBER); doc.setFont("helvetica", "normal"); }
+          else { sc(RED); doc.setFont("helvetica", "normal"); }
         } else {
-          setColor(GRAY);
+          sc(GRAY);
+          doc.setFont("helvetica", "normal");
         }
-        doc.text(row.ach, colX("ach") + 2, textY);
+        doc.text(row.ach, cx("ach") + cols.ach / 2, textY, { align: "center" });
 
-        // KPI TAHUNAN - KEMARIN
+        // KPI KEMARIN
+        doc.setFontSize(fSize);
         doc.setFont("helvetica", "normal");
-        setColor(txtColor);
-        doc.text(row.kem, colX("kem") + 2, textY);
+        sc(tc);
+        doc.text(row.kem, cx("kem") + cols.kem / 2, textY, { align: "center" });
 
-        // KPI TAHUNAN - HARI INI
+        // KPI HARI INI
         if (!row.isInactive) doc.setFont("helvetica", "bold");
-        doc.text(row.hari, colX("hari") + 2, textY);
+        doc.text(row.hari, cx("hari") + cols.hari / 2, textY, { align: "center" });
 
         // DELTA
+        doc.setFontSize(fSize);
         doc.setFont("helvetica", "normal");
         if (!row.isInactive) {
-          if (row.deltaVal > 0) setColor(GREEN_LIGHT);
-          else if (row.deltaVal < 0) setColor(RED);
-          else setColor(BLACK);
+          if (row.deltaVal > 0) sc(GREEN_L);
+          else if (row.deltaVal < 0) sc(RED);
+          else sc(BLACK);
         } else {
-          setColor(GRAY);
+          sc(GRAY);
         }
-        doc.text(row.delta, colX("delta") + 2, textY);
+        doc.text(row.delta, cx("delta") + cols.delta / 2, textY, { align: "center" });
 
-        // SELISIH TARGET RKAP
+        // SELISIH RKAP
         if (!row.isInactive) {
-          setColor(row.selRkapVal >= 0 ? GREEN_LIGHT : RED);
+          sc(row.selRkapVal >= 0 ? GREEN_L : RED);
         } else {
-          setColor(GRAY);
+          sc(GRAY);
         }
-        doc.text(row.selRkap, colX("selRkap") + colW.selRkap - 2, textY, { align: "right" });
+        doc.text(row.selRkap, cx("selRk") + cols.selRk - 1, textY, { align: "right" });
 
-        // SELISIH TARGET EXCEED
+        // SELISIH EXCEED
         if (!row.isInactive) {
-          setColor(row.selExVal >= 0 ? GREEN_LIGHT : RED);
+          sc(row.selExVal >= 0 ? GREEN_L : RED);
         } else {
-          setColor(GRAY);
+          sc(GRAY);
         }
-        doc.text(row.selEx, colX("selEx") + colW.selEx - 2, textY, { align: "right" });
+        doc.text(row.selEx, cx("selEx") + cols.selEx - 1, textY, { align: "right" });
 
-        setColor(BLACK);
+        sc(BLACK);
       }
 
       y += rowH;
     }
 
-    // Final footer
-    drawFooter(pageNum);
+    // ── TABLE BORDER (around all data) ──
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.2);
+    doc.rect(m, m + headerAreaH, totalCW, y - (m + headerAreaH), "S");
 
-    // ── Output PDF ──
+    // ── FOOTER ──
+    const fy = ph - 3;
+    doc.setFontSize(4.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(150, 150, 150);
+    doc.text("MONEV KPI TEGALBOTO 2026 - Dokumen otomatis", m, fy);
+    doc.text(date, pw - m - 30, fy);
+
+    // ── Output ──
     const unitShort = unitLabel.replace(/\s+/g, "_");
     const dateFile = date.replace(/\s+/g, "_");
     const filename = `KPI_${unitShort}_${dateFile}.pdf`;
-
     const pdfBytes = new Uint8Array(doc.output("arraybuffer"));
 
     return new NextResponse(pdfBytes, {
