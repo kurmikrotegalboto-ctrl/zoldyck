@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Upload,
   FileSpreadsheet,
@@ -21,6 +21,7 @@ import {
   ChevronRight,
   ArrowLeftRight,
   CalendarIcon,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,8 @@ export default function Home() {
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // ── Derived data ──
   const currentSnapshot = snapshots[selectedSnapshotIndex] ?? snapshots[0];
@@ -419,6 +422,129 @@ export default function Home() {
     }
   };
 
+  const compareLabel = compareMode
+    ? compareSnapshot?.date
+    : undefined;
+
+  // ── PDF Download Handler ──
+  const handleDownloadPdf = useCallback(async () => {
+    if (!contentRef.current || isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const element = contentRef.current;
+
+      // Create a temporary wrapper for the PDF with header
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:absolute;left:-9999px;top:0;background:#fff;padding:20px 24px;width:" + element.scrollWidth + "px;";
+
+      // Build PDF header
+      const unitName = selectedUnit
+        ? UNIT_LIST.find((u) => u.code === selectedUnit.code)?.label || selectedUnit.code
+        : "KPI";
+      const dateStr = currentSnapshot?.date || "";
+      const totalKpi = selectedUnit?.total_kpi ?? 0;
+      const kpiColor = selectedUnit ? getKpiColor(totalKpi) : "#059669";
+
+      const header = document.createElement("div");
+      header.style.cssText = "margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #00863D;";
+      header.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#00863D;font-family:Calibri,sans-serif;">MONEV KPI / TEGALBOTO 2026</div>
+            <div style="font-size:11px;color:#666;font-family:Calibri,sans-serif;">Laporan Monitoring Kinerja</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#666;font-family:Calibri,sans-serif;">Periode</div>
+            <div style="font-size:13px;font-weight:700;color:#333;font-family:Calibri,sans-serif;">${dateStr}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:14px;font-weight:700;color:#333;font-family:Calibri,sans-serif;">${unitName}</div>
+          <div style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:8px;background:${kpiColor}15;color:${kpiColor};font-weight:800;font-size:18px;font-family:Calibri,sans-serif;">
+            ${totalKpi.toFixed(2)}
+          </div>
+          ${compareLabel ? `<div style="font-size:10px;color:#999;font-family:Calibri,sans-serif;">Bandingkan dengan: ${compareLabel}</div>` : ""}
+        </div>
+      `;
+
+      // Clone the content
+      const clone = element.cloneNode(true) as HTMLElement;
+      // Remove animation classes that could cause issues
+      clone.style.animation = "none";
+      clone.style.opacity = "1";
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+
+      // Wait for any images/content to render
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Capture the content
+      const canvas = await html2canvas(wrapper, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: wrapper.scrollWidth,
+        windowHeight: wrapper.scrollHeight,
+      });
+
+      document.body.removeChild(wrapper);
+
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      // Determine orientation based on content
+      const isLandscape = element.scrollWidth > element.scrollHeight * 0.8;
+
+      // A4 dimensions in mm
+      const pdfWidth = isLandscape ? 297 : 210;
+      const pdfHeight = isLandscape ? 210 : 297;
+      const margin = 8;
+      const contentWidth = pdfWidth - 2 * margin;
+      const contentHeight = (imgHeight * contentWidth) / imgWidth;
+
+      const pdf = new jsPDF({
+        orientation: isLandscape ? "landscape" : "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // Split into multiple pages if needed
+      const pageHeight = pdfHeight - 2 * margin;
+      let heightLeft = contentHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, "PNG", margin, position, contentWidth, contentHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = margin - (contentHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, position, contentWidth, contentHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Generate filename
+      const unitShort = selectedUnit
+        ? UNIT_LIST.find((u) => u.code === selectedUnit.code)?.short || selectedUnit.code
+        : "KPI";
+      const fileName = `KPI_${unitShort}_${dateStr.replace(/\s+/g, "_")}.pdf`;
+
+      pdf.save(fileName);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [isGeneratingPdf, selectedUnit, currentSnapshot, compareLabel]);
+
   // ── KPI delta for summary bar ──
   const kpiDelta = useMemo(() => {
     if (!selectedUnit || !effectivePrevUnit) return 0;
@@ -426,10 +552,6 @@ export default function Home() {
       (selectedUnit.total_kpi - effectivePrevUnit.total_kpi).toFixed(2)
     );
   }, [selectedUnit, effectivePrevUnit]);
-
-  const compareLabel = compareMode
-    ? compareSnapshot?.date
-    : undefined;
 
   // ── Period change handler ──
   const handlePeriodChange = useCallback(
@@ -661,6 +783,20 @@ export default function Home() {
             >
               <Upload className="h-3 w-3" />
               <span className="hidden md:inline">Upload</span>
+            </button>
+
+            {/* Download PDF Button */}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
+              title="Download PDF"
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
             </button>
 
             {/* Settings */}
@@ -920,6 +1056,18 @@ export default function Home() {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isGeneratingPdf}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50 md:hidden"
+                title="Download PDF"
+              >
+                {isGeneratingPdf ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -927,7 +1075,7 @@ export default function Home() {
 
       {/* ═══ MAIN CONTENT ═══ */}
       <main className="flex-1 p-3 md:p-5 pb-24 md:pb-5">
-        <div className="max-w-7xl mx-auto animate-fade-up">
+        <div className="max-w-7xl mx-auto animate-fade-up" ref={contentRef}>
           {activeView === "trend" ? (
             <TrendCharts
               snapshots={snapshots}
