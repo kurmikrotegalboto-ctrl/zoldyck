@@ -47,6 +47,7 @@ import {
 import { UnitDetailTable } from "@/components/dashboard/unit-detail-table";
 import { TrendCharts } from "@/components/dashboard/trend-charts";
 import { CompareCalendar } from "@/components/dashboard/compare-calendar";
+import { KpiAnalysis } from "@/components/dashboard/kpi-analysis";
 import { defaultSnapshot } from "@/lib/default-data";
 import { parseMultipleFiles } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
@@ -116,7 +117,7 @@ export default function Home() {
   const [snapshots, setSnapshots] = useState<SnapshotData[]>([defaultSnapshot]);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
   const [selectedUnitCode, setSelectedUnitCode] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"kpi" | "trend">("kpi");
+  const [activeView, setActiveView] = useState<"kpi" | "trend" | "analisis">("kpi");
   const [isServerMode, setIsServerMode] = useState(false);
 
   // ── Upload state ──
@@ -621,6 +622,17 @@ export default function Home() {
                 <TrendingUp className="h-3 w-3" />
                 Tren
               </button>
+              <button
+                onClick={() => setActiveView("analisis")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  activeView === "analisis"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Activity className="h-3 w-3" />
+                Analisis
+              </button>
             </div>
 
             {/* Period Selector */}
@@ -1014,6 +1026,11 @@ export default function Home() {
               compareDateSort={compareDateSort}
               selectedIndex={selectedSnapshotIndex}
             />
+          ) : activeView === "analisis" ? (
+            <KpiAnalysis
+              units={latestUnits}
+              date={currentSnapshot?.date || ""}
+            />
           ) : selectedUnit ? (
             <UnitDetailTable
               unit={selectedUnit}
@@ -1057,6 +1074,17 @@ export default function Home() {
           >
             <TrendingUp className="h-5 w-5" />
             <span className="text-[10px] font-medium">Tren</span>
+          </button>
+          <button
+            onClick={() => setActiveView("analisis")}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              activeView === "analisis"
+                ? "text-emerald-700"
+                : "text-gray-400"
+            }`}
+          >
+            <Activity className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Analisis</span>
           </button>
 
           {/* Floating Upload Button */}
