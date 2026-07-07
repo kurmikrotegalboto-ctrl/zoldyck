@@ -425,23 +425,42 @@ export default function Home() {
     ? compareSnapshot?.date
     : undefined;
 
-  // ── PDF Download Handler ──
+  // ── PDF Download Handler (server-side generation) ──
   const handleDownloadPdf = useCallback(async () => {
     if (!selectedUnit || isGeneratingPdf) return;
     setIsGeneratingPdf(true);
 
     try {
-      const { generateKpiPdf } = await import("@/lib/generate-kpi-pdf");
-
-      await generateKpiPdf({
-        unit: selectedUnit,
-        unitLabel: getUnitLabel(selectedUnit.code),
-        date: currentSnapshot?.date || "",
-        prevUnit: effectivePrevUnit,
-        compareLabel: compareLabel ?? undefined,
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unit: selectedUnit,
+          unitLabel: getUnitLabel(selectedUnit.code),
+          date: currentSnapshot?.date || "",
+          prevUnit: effectivePrevUnit || undefined,
+          compareLabel: compareLabel ?? undefined,
+        }),
       });
+
+      if (!res.ok) throw new Error("PDF generation failed");
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="(.+?)"/);
+      const filename = match ? match[1] : "KPI_Report.pdf";
+
+      // Trigger download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("PDF generation failed:", error);
+      console.error("PDF download failed:", error);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -1153,6 +1172,17 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ═══ PDF GENERATING OVERLAY ═══ */}
+      {isGeneratingPdf && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white rounded-2xl px-6 py-5 flex flex-col items-center gap-3 shadow-2xl">
+            <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
+            <p className="text-sm font-semibold text-gray-700">Membuat PDF...</p>
+            <p className="text-xs text-gray-400">Mohon tunggu sebentar</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
