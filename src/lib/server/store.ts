@@ -65,40 +65,66 @@ export function verifySignedToken(token: string): boolean {
 const ENV_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || "";
 const ENV_USERNAME = process.env.AUTH_USERNAME || "admin";
 
-async function getStoredPasswordHash(): Promise<string | null> {
+// ── In-memory cache (avoids Supabase round-trip on every login) ──
+let _cachedHash: string | null = null;
+let _cachedUsername: string | null = null;
+let _hashCacheTime = 0;
+let _usernameCacheTime = 0;
+const CACHE_TTL_MS = 60_000; // 1 minute
+
+function invalidateAuthCache() {
+  _cachedHash = null;
+  _cachedUsername = null;
+  _hashCacheTime = 0;
+  _usernameCacheTime = 0;
+}
+
+async function getEffectiveHash(): Promise<string> {
+  // 1. Return cached value if fresh
+  if (_cachedHash && Date.now() - _hashCacheTime < CACHE_TTL_MS) {
+    return _cachedHash;
+  }
+
+  // 2. Check env var first (instant, no network)
+  if (ENV_PASSWORD_HASH) {
+    _cachedHash = ENV_PASSWORD_HASH;
+    _hashCacheTime = Date.now();
+    return ENV_PASSWORD_HASH;
+  }
+
+  // 3. Query Supabase (only if no env var)
   const { data, error } = await supabase
     .from("app_settings")
     .select("value")
     .eq("key", "password_hash")
     .maybeSingle();
-  if (error || !data) return null;
-  return data.value as string;
-}
-
-async function getStoredUsername(): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "username")
-    .maybeSingle();
-  if (error || !data) return null;
-  return data.value as string;
-}
-
-async function getEffectiveHash(): Promise<string> {
-  // 1. Supabase (persistent — after user changes password, this takes over)
-  const dbHash = await getStoredPasswordHash();
-  if (dbHash) return dbHash;
-
-  // 2. Env var fallback (initial setup from Vercel)
-  if (ENV_PASSWORD_HASH) return ENV_PASSWORD_HASH;
+  if (!error && data?.value) {
+    _cachedHash = data.value as string;
+    _hashCacheTime = Date.now();
+    return _cachedHash;
+  }
 
   throw new Error("No password configured. Set AUTH_PASSWORD_HASH env var.");
 }
 
 async function getEffectiveUsername(): Promise<string> {
-  const dbUser = await getStoredUsername();
-  if (dbUser) return dbUser;
+  if (_cachedUsername && Date.now() - _usernameCacheTime < CACHE_TTL_MS) {
+    return _cachedUsername;
+  }
+
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "username")
+    .maybeSingle();
+  if (!error && data?.value) {
+    _cachedUsername = data.value as string;
+    _usernameCacheTime = Date.now();
+    return _cachedUsername;
+  }
+
+  _cachedUsername = ENV_USERNAME;
+  _usernameCacheTime = Date.now();
   return ENV_USERNAME;
 }
 
@@ -177,6 +203,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     return { success: false, error: "Gagal menyimpan password baru ke database" };
   }
 
+  invalidateAuthCache(); // force next login to use new hash
   return { success: true };
 }
 
