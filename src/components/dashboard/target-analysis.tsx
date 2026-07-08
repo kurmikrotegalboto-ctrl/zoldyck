@@ -175,9 +175,10 @@ function analyzeUnit(unit: KpiUnit): UnitTargetAnalysis {
   }
 
   const currentCapped = cappedGaps.reduce((s, g) => s + g.currentScore, 0);
+  const cappedGapPotential = Math.round((cappedMaxTotal - currentCapped) * 100) / 100;
 
   // Build priority actions based on this unit's actual data
-  const priorityActions = buildPriorityActions(cappedGaps, unlimited, cappedGapPotential, unit.total_kpi);
+  const priorityActions = buildPriorityActions(cappedGaps, unlimited, unit.total_kpi);
 
   return {
     unit,
@@ -187,7 +188,7 @@ function analyzeUnit(unit: KpiUnit): UnitTargetAnalysis {
     gapTo115: Math.round((115 - unit.total_kpi) * 100) / 100,
     cappedMaxTotal: Math.round(cappedMaxTotal * 100) / 100,
     cappedCurrent: Math.round(currentCapped * 100) / 100,
-    cappedGapPotential: Math.round((cappedMaxTotal - currentCapped) * 100) / 100,
+    cappedGapPotential,
     unlimitedCurrent: Math.round(unlimitedCurrent * 100) / 100,
     unlimitedBobot,
     needFromUnlimitedFor110: Math.round(needFor110 * 100) / 100,
@@ -203,7 +204,7 @@ function analyzeUnit(unit: KpiUnit): UnitTargetAnalysis {
 
 // ─── Dynamic priority builder ────────────────────────────────────────────
 
-function buildPriorityActions(cappedGaps: CappedGap[], unlimited: UnlimitedInfo[], cappedGapPotential: number, totalKpi: number): PriorityAction[] {
+function buildPriorityActions(cappedGaps: CappedGap[], unlimited: UnlimitedInfo[], totalKpi: number): PriorityAction[] {
   const actions: PriorityAction[] = [];
 
   // Phase 1: Fix critical capped (below 60% ACH) and unlimited below 100%
