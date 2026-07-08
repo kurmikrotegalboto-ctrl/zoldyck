@@ -2,8 +2,9 @@
 
 import { useState, useMemo } from "react";
 import {
-  Target, Clock, Infinity, Lock, Zap, TrendingUp, AlertTriangle,
-  ChevronDown, ChevronRight, Medal, Flame, ShieldCheck
+  Target, Clock, ChevronRight, ChevronDown,
+  Medal, Flame, ShieldCheck, AlertTriangle,
+  ArrowUpRight, ArrowDownRight, Check, Infinity, Zap
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CAPPING_MAP } from "@/lib/kpi-types";
@@ -21,7 +22,13 @@ const UNIT_LABELS: Record<string, string> = {
   "17506": "Colo Sumberjati",
 };
 
-// ─── Working days calculation ────────────────────────────────────────────
+// NPL/LAR: lower realisasi = better (ACH = target/realisasi)
+const INVERSE_COMPONENTS = new Set([
+  "NPL GADAI", "NPL NON GADAI", "NPL EMAS",
+  "LAR GADAI", "LAR NON GADAI", "LAR EMAS",
+]);
+
+// ─── Working days ────────────────────────────────────────────────────────
 
 function calcWorkingDays(from: Date, to: Date): number {
   let count = 0;
@@ -50,252 +57,201 @@ function getRemainingWorkDays(): { days: number; weeks: number; pctYear: number 
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
-interface CappedGap {
+interface StrategyRow {
   name: string;
+  satuan: string;
   bobot: number;
-  achPct: number;
-  currentScore: number;
-  maxScore: number;
-  gap: number;
+  isUnlimited: boolean;
+  isInverse: boolean;
+  currentAch: number;       // e.g. 93.68
+  targetAch: number;        // 110, 115, or 120
+  targetLabel: string;      // "Exceed" | "Super Exceed"
+  gapInSatuan: number;      // positive = need to close (increase for normal, decrease for inverse)
+  dailyTarget: number;
+  status: "chase" | "super_chase" | "achieved";
 }
 
-interface UnlimitedInfo {
-  name: string;
-  bobot: number;
-  achPct: number;
-  currentScore: number;
-  pointsPerPct: number;
-}
-
-interface ScenarioResult {
-  label: string;
-  unlimitedConfig: { gadai: number; emas: number; dep: number };
-  total: number;
-  achievable110: boolean;
-  achievable115: boolean;
-}
-
-interface GapStep {
-  step: number;
-  component: string;
-  type: "capped" | "unlimited";
-  currentAch: number;
-  targetAch: number;
-  pointsGain: number;
-  cumulativeTotal: number;
-  milestone?: "110" | "115";
-}
-
-interface UnitTargetAnalysis {
+interface UnitOverview {
   unit: KpiUnit;
   label: string;
   totalKpi: number;
   gapTo110: number;
   gapTo115: number;
-  cappedMaxTotal: number;
-  cappedCurrent: number;
-  cappedGapPotential: number;
-  unlimitedCurrent: number;
-  unlimitedBobot: number;
-  needFromUnlimitedFor110: number;
-  needFromUnlimitedFor115: number;
-  cappedGaps: CappedGap[];
-  unlimited: UnlimitedInfo[];
-  scenarios: ScenarioResult[];
   cappedMaxed: number;
   cappedTotal: number;
-  gapPath: GapStep[];
-  pathMaxCappedTotal: number;
+  cappedGapPotential: number;
+  unlimitedCurrent: number;
+  unlimitedCount: number;
 }
 
-// ─── Analysis engine (per unit) ──────────────────────────────────────────
+// ─── Number formatting ──────────────────────────────────────────────────
 
-function analyzeUnit(unit: KpiUnit): UnitTargetAnalysis {
-  const cappedGaps: CappedGap[] = [];
-  const unlimited: UnlimitedInfo[] = [];
-  let cappedMaxTotal = 0;
-  let unlimitedCurrent = 0;
-  let unlimitedBobot = 0;
+function fmtVal(value: number, satuan: string): string {
+  const abs = Math.abs(value);
+  if (satuan === "Rp") {
+    if (abs >= 1e12) return `Rp ${(abs / 1e12).toFixed(2).replace(".", ",")} T`;
+    if (abs >= 1e9) return `Rp ${(abs / 1e9).toFixed(2).replace(".", ",")} M`;
+    if (abs >= 1e6) return `Rp ${(abs / 1e6).toFixed(1).replace(".", ",")} Jt`;
+    return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
+  }
+  if (satuan === "Jumlah") {
+    return Math.round(abs).toLocaleString("id-ID");
+  }
+  if (satuan === "Gramasi") {
+    return `${abs.toFixed(1).replace(".", ",")} gram`;
+  }
+  if (satuan === "%") {
+    return `${abs.toFixed(2).replace(".", ",")}%`;
+  }
+  return abs.toFixed(2);
+}
+
+function fmtDaily(value: number, satuan: string, isInverse: boolean): string {
+  if (value === 0) return "-";
+  const abs = Math.abs(value);
+  const arrow = isInverse ? "\u2193" : "\u2191";
+  if (satuan === "Rp") {
+    if (abs >= 1e9) return `${arrow} Rp ${(abs / 1e9).toFixed(2).replace(".", ",")} M/hari`;
+    if (abs >= 1e6) return `${arrow} Rp ${(abs / 1e6).toFixed(1).replace(".", ",")} Jt/hari`;
+    if (abs >= 1e3) return `${arrow} Rp ${Math.round(abs).toLocaleString("id-ID")}/hari`;
+    return `${arrow} Rp ${Math.round(abs)}/hari`;
+  }
+  if (satuan === "Jumlah") {
+    return `${arrow} ${Math.round(abs).toLocaleString("id-ID")}/hari`;
+  }
+  if (satuan === "Gramasi") {
+    return `${arrow} ${abs.toFixed(1).replace(".", ",")} gram/hari`;
+  }
+  if (satuan === "%") {
+    return `${arrow} ${abs.toFixed(4).replace(".", ",")}%/hari`;
+  }
+  return `${arrow} ${abs.toFixed(2)}/hari`;
+}
+
+function satuanBadgeCls(satuan: string): string {
+  if (satuan === "Rp") return "bg-teal-50 text-teal-700 ring-teal-200";
+  if (satuan === "Jumlah") return "bg-blue-50 text-blue-700 ring-blue-200";
+  if (satuan === "Gramasi") return "bg-amber-50 text-amber-700 ring-amber-200";
+  if (satuan === "%") return "bg-purple-50 text-purple-700 ring-purple-200";
+  return "bg-gray-50 text-gray-700 ring-gray-200";
+}
+
+// ─── Strategy table builder ─────────────────────────────────────────────
+
+function buildStrategyRows(unit: KpiUnit, workDays: number): StrategyRow[] {
+  const rows: StrategyRow[] = [];
 
   for (const c of unit.components) {
     if (c.bobot === 0) continue;
     const cap = CAPPING_MAP[c.kpi_name];
-    const achPct = Math.round(c.ach * 1000) / 10;
+    if (cap === "-") continue;
 
-    if (cap === "Unlimited") {
-      unlimitedBobot += c.bobot;
-      unlimitedCurrent += c.kpi_score;
-      const pointsPerPct = c.bobot / 100;
-      unlimited.push({
-        name: c.kpi_name, bobot: c.bobot, achPct,
-        currentScore: Math.round(c.kpi_score * 100) / 100,
-        pointsPerPct: Math.round(pointsPerPct * 1000) / 1000,
-      });
-    } else if (cap === "110") {
-      const maxScore = c.bobot * 1.1;
-      cappedMaxTotal += maxScore;
-      const gap = maxScore - c.kpi_score;
-      cappedGaps.push({
-        name: c.kpi_name, bobot: c.bobot, achPct,
-        currentScore: Math.round(c.kpi_score * 100) / 100,
-        maxScore: Math.round(maxScore * 100) / 100,
-        gap: Math.round(gap * 100) / 100,
-      });
+    const isUnlimited = cap === "Unlimited";
+    const isInverse = INVERSE_COMPONENTS.has(c.kpi_name);
+    const achPct = Math.round(c.ach * 1000) / 10; // e.g. 93.68
+
+    let targetAch: number;
+    let targetLabel: string;
+    let status: StrategyRow["status"];
+
+    if (isUnlimited) {
+      if (achPct >= 120) {
+        targetAch = 120; targetLabel = "Super Exceed"; status = "achieved";
+      } else {
+        targetAch = 120; targetLabel = "Exceed"; status = "chase";
+      }
+    } else {
+      // Capped
+      if (achPct >= 115) {
+        targetAch = 115; targetLabel = "Super Exceed"; status = "achieved";
+      } else if (achPct >= 110) {
+        targetAch = 115; targetLabel = "Super Exceed"; status = "super_chase";
+      } else {
+        targetAch = 110; targetLabel = "Exceed"; status = "chase";
+      }
     }
-  }
 
-  cappedGaps.sort((a, b) => b.gap - a.gap);
-
-  const needFor110 = 110 - cappedMaxTotal;
-  const needFor115 = 115 - cappedMaxTotal;
-
-  const scenarios: ScenarioResult[] = [
-    { label: "Konservatif", unlimitedConfig: { gadai: 120, emas: 115, dep: 110 }, total: 0, achievable110: false, achievable115: false },
-    { label: "Moderat", unlimitedConfig: { gadai: 130, emas: 125, dep: 110 }, total: 0, achievable110: false, achievable115: false },
-    { label: "Agresif", unlimitedConfig: { gadai: 140, emas: 135, dep: 115 }, total: 0, achievable110: false, achievable115: false },
-  ];
-
-  const unliNames = ["OSL AKTIF RATA-RATA GADAI", "OSL AKTIF RATA-RATA EMAS", "DEPOSITO EMAS"];
-  for (const s of scenarios) {
-    const { gadai, emas, dep } = s.unlimitedConfig;
-    let unliScore = 0;
-    const configs = [gadai, emas, dep];
-    for (let i = 0; i < unliNames.length; i++) {
-      const comp = unlimited.find((u) => u.name === unliNames[i]);
-      if (comp) unliScore += comp.bobot * (configs[i] / 100);
+    // Required realisasi to achieve targetAch
+    let requiredRealisasi: number;
+    if (isInverse) {
+      requiredRealisasi = c.target / (targetAch / 100);
+    } else {
+      requiredRealisasi = c.target * (targetAch / 100);
     }
-    s.total = Math.round((cappedMaxTotal + unliScore) * 100) / 100;
-    s.achievable110 = s.total >= 110;
-    s.achievable115 = s.total >= 115;
-  }
 
-  const currentCapped = cappedGaps.reduce((s, g) => s + g.currentScore, 0);
-  const cappedGapPotential = Math.round((cappedMaxTotal - currentCapped) * 100) / 100;
+    // Gap in satuan
+    let gap: number;
+    if (isInverse) {
+      gap = c.realisasi - requiredRealisasi; // positive = still too high
+    } else {
+      gap = requiredRealisasi - c.realisasi; // positive = need more
+    }
 
-  // Build gap closure path
-  const { gapPath, pathMaxCappedTotal } = buildGapClosurePath(cappedGaps, unlimited, unit.total_kpi, cappedMaxTotal);
+    if (gap <= 0) {
+      status = "achieved";
+      gap = 0;
+    }
 
-  return {
-    unit, label: UNIT_LABELS[unit.code] || unit.name,
-    totalKpi: unit.total_kpi,
-    gapTo110: Math.round((110 - unit.total_kpi) * 100) / 100,
-    gapTo115: Math.round((115 - unit.total_kpi) * 100) / 100,
-    cappedMaxTotal: Math.round(cappedMaxTotal * 100) / 100,
-    cappedCurrent: Math.round(currentCapped * 100) / 100,
-    cappedGapPotential,
-    unlimitedCurrent: Math.round(unlimitedCurrent * 100) / 100,
-    unlimitedBobot,
-    needFromUnlimitedFor110: Math.round(needFor110 * 100) / 100,
-    needFromUnlimitedFor115: Math.round(needFor115 * 100) / 100,
-    cappedGaps, unlimited, scenarios,
-    cappedMaxed: cappedGaps.filter((g) => g.gap < 0.01).length,
-    cappedTotal: cappedGaps.length,
-    gapPath,
-    pathMaxCappedTotal: Math.round(pathMaxCappedTotal * 100) / 100,
-  };
-}
+    const dailyTarget = workDays > 0 ? gap / workDays : 0;
 
-// ─── Gap Closure Path Builder ────────────────────────────────────────────
-
-function buildGapClosurePath(
-  cappedGaps: CappedGap[],
-  unlimited: UnlimitedInfo[],
-  currentTotal: number,
-  cappedMaxTotal: number
-): { gapPath: GapStep[]; pathMaxCappedTotal: number } {
-  const steps: GapStep[] = [];
-  let cumulative = currentTotal;
-  let stepNum = 0;
-
-  // PHASE 1: Maximize all capped (sorted by gap descending = biggest impact first)
-  const sortedCapped = [...cappedGaps].sort((a, b) => b.gap - a.gap);
-  for (const c of sortedCapped) {
-    if (c.gap < 0.01) continue;
-    stepNum++;
-    cumulative += c.gap;
-    const milestone = cumulative >= 115 ? "115" as const : cumulative >= 110 ? "110" as const : undefined;
-    steps.push({
-      step: stepNum, component: c.name, type: "capped",
-      currentAch: c.achPct, targetAch: 110,
-      pointsGain: Math.round(c.gap * 100) / 100,
-      cumulativeTotal: Math.round(cumulative * 100) / 100,
-      milestone,
+    rows.push({
+      name: c.kpi_name,
+      satuan: c.satuan,
+      bobot: c.bobot,
+      isUnlimited,
+      isInverse,
+      currentAch: achPct,
+      targetAch,
+      targetLabel,
+      gapInSatuan: Math.round(gap * 100) / 100,
+      dailyTarget: Math.round(dailyTarget * 100) / 100,
+      status,
     });
   }
 
-  const totalAfterCapped = cumulative;
+  // Sort: chase first (biggest gap), then super_chase (biggest gap), then achieved
+  const order: Record<string, number> = { chase: 0, super_chase: 1, achieved: 2 };
+  rows.sort((a, b) => {
+    if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+    return b.gapInSatuan - a.gapInSatuan;
+  });
 
-  // PHASE 2: If below 110, push unlimited
-  if (totalAfterCapped < 110 && unlimited.length > 0) {
-    // First bring unlimited below 100% up to 100%
-    const below100 = unlimited.filter(u => u.achPct < 100).sort((a, b) => a.achPct - b.achPct);
-    for (const u of below100) {
-      const achGain = 100 - u.achPct;
-      const gain = u.bobot * (achGain / 100);
-      cumulative += gain;
-      stepNum++;
-      const milestone = cumulative >= 115 ? "115" as const : cumulative >= 110 ? "110" as const : undefined;
-      steps.push({
-        step: stepNum, component: u.name, type: "unlimited",
-        currentAch: u.achPct, targetAch: 100,
-        pointsGain: Math.round(gain * 100) / 100,
-        cumulativeTotal: Math.round(cumulative * 100) / 100,
-        milestone,
-      });
-    }
+  return rows;
+}
 
-    // Then push unlimited to reach exactly 110
-    if (cumulative < 110) {
-      const sorted = [...unlimited].sort((a, b) => b.pointsPerPct - a.pointsPerPct);
-      const achAdjustments = new Map<string, number>();
-      for (const s of steps) { if (s.type === "unlimited") achAdjustments.set(s.component, s.targetAch); }
+// ─── Overview analysis (lightweight) ─────────────────────────────────────
 
-      for (const u of sorted) {
-        if (cumulative >= 110) break;
-        const currentAch = achAdjustments.get(u.name) ?? u.achPct;
-        const remaining = 110 - cumulative;
-        const achNeeded = remaining / u.pointsPerPct;
-        const targetAch = Math.round((currentAch + achNeeded) * 10) / 10;
-        cumulative += remaining;
-        stepNum++;
-        steps.push({
-          step: stepNum, component: u.name, type: "unlimited",
-          currentAch, targetAch,
-          pointsGain: Math.round(remaining * 100) / 100,
-          cumulativeTotal: Math.round(cumulative * 100) / 100,
-          milestone: "110",
-        });
-        achAdjustments.set(u.name, targetAch);
-      }
+function analyzeOverview(unit: KpiUnit): UnitOverview {
+  let cappedMaxed = 0, cappedTotal = 0, cappedCurrent = 0, cappedMaxTotal = 0;
+  let unlimitedCurrent = 0, unlimitedCount = 0;
+
+  for (const c of unit.components) {
+    if (c.bobot === 0) continue;
+    const cap = CAPPING_MAP[c.kpi_name];
+    if (cap === "Unlimited") {
+      unlimitedCount++;
+      unlimitedCurrent += c.kpi_score;
+    } else if (cap === "110") {
+      cappedTotal++;
+      cappedCurrent += c.kpi_score;
+      const maxScore = c.bobot * 1.1;
+      cappedMaxTotal += maxScore;
+      if (c.ach >= 1.10) cappedMaxed++;
     }
   }
 
-  // PHASE 3: Push unlimited to reach 115
-  if (cumulative < 115 && unlimited.length > 0) {
-    const sorted = [...unlimited].sort((a, b) => b.pointsPerPct - a.pointsPerPct);
-    const achAdjustments = new Map<string, number>();
-    for (const s of steps) { if (s.type === "unlimited") achAdjustments.set(s.component, s.targetAch); }
-
-    for (const u of sorted) {
-      if (cumulative >= 115) break;
-      const currentAch = achAdjustments.get(u.name) ?? u.achPct;
-      const remaining = 115 - cumulative;
-      const achNeeded = remaining / u.pointsPerPct;
-      const targetAch = Math.round((currentAch + achNeeded) * 10) / 10;
-      cumulative += remaining;
-      stepNum++;
-      steps.push({
-        step: stepNum, component: u.name, type: "unlimited",
-        currentAch, targetAch,
-        pointsGain: Math.round(remaining * 100) / 100,
-        cumulativeTotal: Math.round(cumulative * 100) / 100,
-        milestone: "115",
-      });
-      achAdjustments.set(u.name, targetAch);
-    }
-  }
-
-  return { gapPath: steps, pathMaxCappedTotal: totalAfterCapped };
+  return {
+    unit,
+    label: UNIT_LABELS[unit.code] || unit.name,
+    totalKpi: unit.total_kpi,
+    gapTo110: Math.round((110 - unit.total_kpi) * 100) / 100,
+    gapTo115: Math.round((115 - unit.total_kpi) * 100) / 100,
+    cappedMaxed,
+    cappedTotal,
+    cappedGapPotential: Math.round((cappedMaxTotal - cappedCurrent) * 100) / 100,
+    unlimitedCurrent: Math.round(unlimitedCurrent * 100) / 100,
+    unlimitedCount,
+  };
 }
 
 // ─── Color helpers ───────────────────────────────────────────────────────
@@ -319,21 +275,61 @@ function statusBadge(score: number): { label: string; cls: string } {
   return { label: "Kritis", cls: "bg-red-100 text-red-700 border-0" };
 }
 
-// ─── Check icon ──────────────────────────────────────────────────────────
+function achBarColor(ach: number): string {
+  if (ach >= 110) return "bg-emerald-500";
+  if (ach >= 100) return "bg-emerald-400";
+  if (ach >= 80) return "bg-amber-400";
+  if (ach >= 50) return "bg-orange-400";
+  return "bg-red-400";
+}
 
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-    </svg>
-  );
+function achTextColor(ach: number): string {
+  if (ach >= 110) return "text-emerald-600";
+  if (ach >= 100) return "text-emerald-600";
+  if (ach >= 80) return "text-amber-600";
+  if (ach >= 50) return "text-orange-600";
+  return "text-red-600";
 }
 
 // ─── UNIT DETAIL PANEL ───────────────────────────────────────────────────
 
-function UnitDetailPanel({ analysis }: { analysis: UnitTargetAnalysis }) {
-  const cappedSteps = analysis.gapPath.filter(s => s.type === "capped");
-  const unlimitedSteps = analysis.gapPath.filter(s => s.type === "unlimited");
+function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workDays: number }) {
+  const rows = useMemo(() => buildStrategyRows(analysis.unit, workDays), [analysis.unit, workDays]);
+
+  const chaseRows = rows.filter(r => r.status === "chase");
+  const superChaseRows = rows.filter(r => r.status === "super_chase");
+  const achievedRows = rows.filter(r => r.status === "achieved");
+
+  // Running total poin simulation: shows cumulative KPI if each component is optimized in order
+  const simulationData = useMemo(() => {
+    const unit = analysis.unit;
+    const currentTotal = analysis.totalKpi;
+    let running = currentTotal;
+    const steps: { name: string; gain: number; cumulative: number; milestone?: string }[] = [];
+    for (const r of rows) {
+      if (r.status === "achieved") {
+        steps.push({ name: r.name, gain: 0, cumulative: running });
+        continue;
+      }
+      const comp = unit.components.find(c => c.kpi_name === r.name);
+      if (!comp) continue;
+      let gain: number;
+      const cap = CAPPING_MAP[r.name];
+      if (cap === "Unlimited") {
+        // Unlimited: score can go up to bobot * (targetAch/100)
+        const targetScore = comp.bobot * (r.targetAch / 100);
+        gain = Math.max(0, targetScore - comp.kpi_score);
+      } else {
+        // Capped: max possible score is bobot * 1.10
+        const maxScore = comp.bobot * 1.10;
+        gain = Math.max(0, maxScore - comp.kpi_score);
+      }
+      running += gain;
+      const milestone = running >= 115 ? "115!" : running >= 110 ? "110!" : undefined;
+      steps.push({ name: r.name, gain: Math.round(gain * 100) / 100, cumulative: Math.round(running * 100) / 100, milestone });
+    }
+    return steps;
+  }, [rows, analysis.unit, analysis.totalKpi]);
 
   return (
     <div className="space-y-4 animate-fade-up">
@@ -380,292 +376,227 @@ function UnitDetailPanel({ analysis }: { analysis: UnitTargetAnalysis }) {
         </div>
       </div>
 
-      {/* ═══ TWO COLUMN: Unlimited + Capped Gaps ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* UNLIMITED COMPONENTS */}
-        <div className="bg-white rounded-xl border p-4 md:p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-lg bg-violet-100">
-              <Infinity className="h-4 w-4 text-violet-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold">Komponen Unlimited</h3>
-              <p className="text-[10px] text-muted-foreground">Tidak ada batas atas. Kunci utama tembus 110.</p>
-            </div>
-          </div>
-          {analysis.unlimited.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">Tidak ada komponen unlimited</p>
-          ) : (
-            <div className="space-y-2">
-              {analysis.unlimited.map((u) => (
-                <div key={u.name} className="p-3 rounded-lg bg-violet-50/60 border border-violet-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs font-bold text-gray-800 leading-tight">{u.name}</p>
-                    <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px] font-bold shrink-0 ml-2">
-                      +{u.pointsPerPct} poin/%
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 text-[11px]">
-                    <span className="text-muted-foreground">Bobot: <span className="font-bold text-gray-700">{u.bobot}</span></span>
-                    <span className="text-muted-foreground">ACH: <span className={`font-bold ${u.achPct >= 110 ? "text-emerald-600" : u.achPct >= 80 ? "text-amber-600" : "text-red-600"}`}>{u.achPct}%</span></span>
-                    <span className="text-muted-foreground">Skor: <span className="font-bold text-gray-700">{u.currentScore}</span></span>
-                  </div>
-                  {u.achPct < 100 && (
-                    <p className="text-[10px] text-amber-600 mt-1.5 font-medium">
-                      <AlertTriangle className="h-3 w-3 inline mr-1" />
-                      Belum 100% — prioritaskan naikkan dulu
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {analysis.unlimited.length > 0 && (
-            <div className="mt-3 p-2.5 rounded-lg bg-violet-100/60 border border-violet-200">
-              <p className="text-[11px] text-violet-800 font-medium">
-                <Zap className="h-3 w-3 inline mr-1" />
-                Jika semua capped max 110%, butuh <span className="font-bold">{analysis.needFromUnlimitedFor110} poin</span> dari unlimited untuk target 110, dan <span className="font-bold">{analysis.needFromUnlimitedFor115} poin</span> untuk target 115.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* CAPPED GAPS */}
-        <div className="bg-white rounded-xl border p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
+      {/* ═══ STRATEGY TABLE ═══ */}
+      <div className="bg-white rounded-xl border overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 bg-gradient-to-r from-slate-800 to-slate-700 text-white">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-emerald-100">
-                <Lock className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold">Komponen Capped (maks 110%)</h3>
-                <p className="text-[10px] text-muted-foreground">
-                  {analysis.cappedMaxed}/{analysis.cappedTotal} sudah max &middot; sisa potensi: {analysis.cappedGapPotential} poin
-                </p>
-              </div>
+              <Target className="h-4 w-4" />
+              <h3 className="text-sm font-bold">Gap Analysis per Sub-Komponen</h3>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+              <Clock className="h-3 w-3" />
+              <span>{workDays} hari kerja tersisa</span>
             </div>
           </div>
-          <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
-            {analysis.cappedGaps.map((g, idx) => (
-              <div key={g.name}
-                className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors ${
-                  g.gap < 0.01 ? "bg-emerald-50"
-                  : g.gap >= 3 ? "bg-red-50"
-                  : g.gap >= 1 ? "bg-amber-50"
-                  : "bg-gray-50"
-                }`}>
-                <span className={`text-[10px] font-bold w-5 text-center tabular-nums ${idx < 3 ? "text-red-500" : "text-gray-400"}`}>
-                  {idx + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-[11px] font-medium truncate ${g.gap < 0.01 ? "text-emerald-700" : "text-gray-700"}`}>
-                    {g.name}
-                    {g.gap < 0.01 && <CheckIcon className="h-3 w-3 inline ml-1 text-emerald-500" />}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">ACH {g.achPct}%</span>
-                    <div className="flex-1 h-1.5 bg-gray-200 rounded-full max-w-[100px]">
-                      <div className={`h-1.5 rounded-full transition-all ${
-                        g.achPct >= 100 ? "bg-emerald-500" :
-                        g.achPct >= 80 ? "bg-amber-400" :
-                        g.achPct >= 50 ? "bg-orange-400" : "bg-red-400"
-                      }`} style={{ width: `${Math.min(g.achPct / 110 * 100, 100)}%` }} />
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  {g.gap < 0.01 ? (
-                    <span className="text-[10px] font-bold text-emerald-600">MAX</span>
-                  ) : (
-                    <>
-                      <p className="text-[11px] font-bold text-red-600 tabular-nums">-{g.gap.toFixed(2)}</p>
-                      <p className="text-[9px] text-muted-foreground">poin</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Gap dalam satuan asli &divide; sisa hari efektif = target harian &middot; Diurutkan dari gap terbesar
+          </p>
         </div>
-      </div>
 
-      {/* ═══ SCENARIOS ═══ */}
-      <div className="bg-white rounded-xl border p-4 md:p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 rounded-lg bg-amber-100">
-            <TrendingUp className="h-4 w-4 text-amber-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold">Skenario Pencapaian</h3>
-            <p className="text-[10px] text-muted-foreground">Asumsi semua capped max 110%. Variasi hanya di unlimited.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {analysis.scenarios.map((s) => (
-            <div key={s.label}
-              className={`p-4 rounded-lg border-2 transition-colors ${
-                s.total >= 115 ? "border-amber-300 bg-amber-50/50"
-                : s.total >= 110 ? "border-emerald-300 bg-emerald-50/50"
-                : "border-gray-200 bg-gray-50/50"
-              }`}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold">{s.label}</p>
-                <Badge className={`border-0 text-[10px] font-bold ${
-                  s.total >= 115 ? "bg-amber-100 text-amber-700"
-                  : s.total >= 110 ? "bg-emerald-100 text-emerald-700"
-                  : "bg-gray-100 text-gray-500"
-                }`}>
-                  {s.total >= 115 ? "Super Exceed" : s.total >= 110 ? "Exceed" : "Belum"}
-                </Badge>
-              </div>
-              <p className={`text-2xl font-black tabular-nums ${
-                s.total >= 115 ? "text-amber-600" : s.total >= 110 ? "text-emerald-600" : "text-gray-500"
-              }`}>
-                {s.total.toFixed(1)}
-              </p>
-              <div className="mt-2 space-y-1">
-                <p className="text-[10px] text-muted-foreground">OSL Gadai: <span className="font-bold text-gray-700">{s.unlimitedConfig.gadai}%</span></p>
-                <p className="text-[10px] text-muted-foreground">OSL Emas: <span className="font-bold text-gray-700">{s.unlimitedConfig.emas}%</span></p>
-                <p className="text-[10px] text-muted-foreground">Deposito Emas: <span className="font-bold text-gray-700">{s.unlimitedConfig.dep}%</span></p>
-              </div>
+        {/* Summary pills */}
+        <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+          <div className="px-4 py-2.5 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground">Chase Exceed</p>
+              <p className="text-sm font-black text-red-600 tabular-nums">{chaseRows.length}</p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ═══ JALUR PENCAPAIAN 110 / 115 ═══ */}
-      <div className="bg-white rounded-xl border p-4 md:p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="p-1.5 rounded-lg bg-emerald-100">
-            <Target className="h-4 w-4 text-emerald-600" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold">Jalur Pencapaian 110 / 115</h3>
-            <p className="text-[10px] text-muted-foreground">
-              Simulasi step-by-step: urutkan dari gap terbesar, hitung skor kumulatif.
-            </p>
+          <div className="px-4 py-2.5 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground">Chase Super Exceed</p>
+              <p className="text-sm font-black text-amber-600 tabular-nums">{superChaseRows.length}</p>
+            </div>
+          </div>
+          <div className="px-4 py-2.5 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <div>
+              <p className="text-[10px] text-muted-foreground">Sudah Capai Target</p>
+              <p className="text-sm font-black text-emerald-600 tabular-nums">{achievedRows.length}</p>
+            </div>
           </div>
         </div>
 
-        {/* Starting point */}
-        <div className="mt-3 mb-2 flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200">
-          <span className="text-[10px] font-bold text-gray-400 w-16 shrink-0">MULAI</span>
-          <span className="text-[11px] text-gray-500 flex-1">Skor saat ini</span>
-          <span className={`text-base font-black tabular-nums ${kpiScoreColor(analysis.totalKpi)}`}>
-            {analysis.totalKpi.toFixed(2)}
-          </span>
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px] min-w-[700px]">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-100">
+                <th className="text-left px-3 py-2 font-semibold text-gray-500 w-7">#</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-500">Komponen</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Satuan</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-12">Bobot</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-24">ACH</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-20">Target</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-36">Gap (Satuan)</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-44">Target / Hari</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Poin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => {
+                const simStep = simulationData.find(s => s.name === r.name);
+                const isUrgent = r.status === "chase" && idx < 3;
+                const rowBg = r.status === "achieved"
+                  ? "bg-emerald-50/40"
+                  : r.status === "super_chase"
+                  ? "bg-amber-50/30"
+                  : isUrgent
+                  ? "bg-red-50/40"
+                  : idx % 2 === 0 ? "bg-white" : "bg-gray-50/30";
+
+                const borderLeft = r.status === "achieved"
+                  ? "border-l-emerald-400"
+                  : r.status === "super_chase"
+                  ? "border-l-amber-400"
+                  : isUrgent
+                  ? "border-l-red-400"
+                  : "border-l-gray-300";
+
+                return (
+                  <tr key={r.name} className={`${rowBg} border-l-[3px] ${borderLeft} border-b border-gray-50 hover:bg-gray-50/80 transition-colors`}>
+                    {/* # */}
+                    <td className={`px-3 py-2.5 font-bold tabular-nums ${isUrgent ? "text-red-500" : r.status === "achieved" ? "text-emerald-400" : "text-gray-400"}`}>
+                      {r.status === "achieved" ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" />
+                      ) : (
+                        idx + 1
+                      )}
+                    </td>
+
+                    {/* Komponen name */}
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        {r.isUnlimited && <Infinity className="h-3 w-3 text-violet-500 shrink-0" />}
+                        <span className={`font-semibold ${r.status === "achieved" ? "text-emerald-700" : "text-gray-800"}`}>
+                          {r.name}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Satuan */}
+                    <td className="px-2 py-2.5 text-center">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ring-1 ${satuanBadgeCls(r.satuan)}`}>
+                        {r.satuan}
+                      </span>
+                    </td>
+
+                    {/* Bobot */}
+                    <td className="px-2 py-2.5 text-center font-bold text-gray-500 tabular-nums">{r.bobot}</td>
+
+                    {/* ACH with mini bar */}
+                    <td className="px-2 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-bold tabular-nums text-[11px] w-11 text-right ${achTextColor(r.currentAch)}`}>
+                          {r.currentAch.toFixed(1)}%
+                        </span>
+                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full min-w-[40px]">
+                          <div
+                            className={`h-1.5 rounded-full transition-all ${achBarColor(r.currentAch)}`}
+                            style={{ width: `${Math.min(r.currentAch / (r.isUnlimited ? 120 : 115) * 100, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Target */}
+                    <td className="px-2 py-2.5 text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className={`font-black tabular-nums text-[12px] ${r.targetAch >= 115 ? "text-amber-600" : "text-emerald-600"}`}>
+                          {r.targetAch}%
+                        </span>
+                        <span className={`text-[8px] font-bold ${r.targetAch >= 115 ? "text-amber-500" : "text-emerald-500"}`}>
+                          {r.targetLabel}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Gap in satuan */}
+                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${r.status === "achieved" ? "text-emerald-500" : "text-gray-800"}`}>
+                      {r.status === "achieved" ? (
+                        <span className="text-emerald-500 font-medium">-</span>
+                      ) : r.isInverse ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <ArrowDownRight className="h-3 w-3 text-orange-500 shrink-0" />
+                          <span>{fmtVal(r.gapInSatuan, r.satuan)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <ArrowUpRight className="h-3 w-3 text-red-500 shrink-0" />
+                          <span>{fmtVal(r.gapInSatuan, r.satuan)}</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Daily target */}
+                    <td className="px-3 py-2.5 text-right">
+                      {r.status === "achieved" ? (
+                        <span className="text-emerald-500 font-medium text-[10px]">Sudah capai</span>
+                      ) : (
+                        <div className={`font-bold tabular-nums text-[11px] ${isUrgent ? "text-red-600" : "text-gray-700"}`}>
+                          {fmtDaily(r.dailyTarget, r.satuan, r.isInverse)}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Poin: gain + cumulative total */}
+                    <td className="px-2 py-2.5 text-center">
+                      {r.status === "achieved" ? (
+                        <span className="text-emerald-500 text-[10px] font-bold">MAX</span>
+                      ) : simStep ? (
+                        <div className="flex flex-col items-center">
+                          {simStep.gain > 0 ? (
+                            <span className="text-[9px] text-emerald-500 font-bold leading-tight">+{simStep.gain.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-[9px] text-gray-400 leading-tight">0.00</span>
+                          )}
+                          <span className={`font-black tabular-nums text-[11px] leading-tight ${
+                            simStep.milestone === "115!" ? "text-amber-600" :
+                            simStep.milestone === "110!" ? "text-emerald-600" : "text-gray-600"
+                          }`}>
+                            {simStep.cumulative.toFixed(1)}
+                          </span>
+                          {simStep.milestone && (
+                            <Badge className={`mt-0.5 border-0 text-[7px] font-black px-1 py-0 leading-tight ${
+                              simStep.milestone === "115!" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                            }`}>
+                              {simStep.milestone}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-[10px]">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {/* Capped steps */}
-        {cappedSteps.length > 0 && (
-          <div className="mb-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-              Langkah 1 — Maksimalkan Capped (ke 110%)
-            </p>
-            <div className="space-y-1">
-              {cappedSteps.map((s) => (
-                <div key={s.step}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    s.milestone === "115" ? "bg-amber-50 border-amber-200"
-                    : s.milestone === "110" ? "bg-emerald-50 border-emerald-200"
-                    : "bg-white border-gray-100 hover:border-gray-200"
-                  }`}>
-                  <span className="text-[10px] font-bold text-gray-400 w-16 shrink-0 tabular-nums">#{s.step}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Lock className="h-3 w-3 text-gray-400 shrink-0" />
-                      <span className="text-[11px] font-semibold text-gray-700 truncate">{s.component}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {s.currentAch.toFixed(1)}% → <span className="font-bold text-emerald-600">110%</span>
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-emerald-600">+{s.pointsGain.toFixed(2)}</span>
-                    <span className={`text-sm font-black tabular-nums min-w-[55px] text-right ${
-                      s.milestone === "115" ? "text-amber-600"
-                      : s.milestone === "110" ? "text-emerald-600"
-                      : "text-gray-700"
-                    }`}>
-                      {s.cumulativeTotal.toFixed(1)}
-                    </span>
-                    {s.milestone && (
-                      <Badge className={`border-0 text-[9px] font-bold px-1.5 py-0 shrink-0 ${
-                        s.milestone === "115" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                      }`}>
-                        {s.milestone}!
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Summary bar */}
-            <div className="mt-2 px-3 py-2 rounded-lg bg-emerald-50/50 border border-emerald-100">
-              <p className="text-[10px] text-emerald-700 font-medium">
-                <Lock className="h-3 w-3 inline mr-1" />
-                Jika semua capped max → Total: <span className="font-black">{analysis.pathMaxCappedTotal.toFixed(2)}</span>
-                {analysis.pathMaxCappedTotal >= 110
-                  ? " — 110 sudah tercapai tanpa unlimited!"
-                  : ` — Kurang ${(110 - analysis.pathMaxCappedTotal).toFixed(2)} poin ke 110, perlu dorong unlimited.`}
-              </p>
-            </div>
+        {/* Footer summary */}
+        <div className="px-4 py-3 bg-gray-50/80 border-t border-gray-100">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]">
+            <span className="text-muted-foreground">
+              <strong className="text-gray-700">{rows.length}</strong> komponen aktif
+            </span>
+            <span className="text-muted-foreground">
+              <strong className="text-gray-700">{analysis.cappedMaxed}/{analysis.cappedTotal}</strong> capped max
+            </span>
+            <span className="text-muted-foreground">
+              <strong className="text-gray-700">{analysis.unlimitedCount}</strong> unlimited
+            </span>
+            {analysis.cappedGapPotential > 0 && (
+              <span className="text-emerald-600 font-medium">
+                Potensi capped: +{analysis.cappedGapPotential.toFixed(1)} poin
+              </span>
+            )}
           </div>
-        )}
-
-        {/* Unlimited steps */}
-        {unlimitedSteps.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-              Langkah 2 — Dorong Unlimited (tanpa batas)
-            </p>
-            <div className="space-y-1">
-              {unlimitedSteps.map((s) => (
-                <div key={s.step}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
-                    s.milestone === "115" ? "bg-amber-50 border-amber-200"
-                    : s.milestone === "110" ? "bg-emerald-50 border-emerald-200"
-                    : "bg-violet-50/50 border-violet-100 hover:border-violet-200"
-                  }`}>
-                  <span className="text-[10px] font-bold text-gray-400 w-16 shrink-0 tabular-nums">#{s.step}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Infinity className="h-3 w-3 text-violet-500 shrink-0" />
-                      <span className="text-[11px] font-semibold text-gray-700 truncate">{s.component}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {s.currentAch.toFixed(1)}% → <span className="font-bold text-violet-600">{s.targetAch.toFixed(1)}%</span>
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-violet-600">+{s.pointsGain.toFixed(2)}</span>
-                    <span className={`text-sm font-black tabular-nums min-w-[55px] text-right ${
-                      s.milestone === "115" ? "text-amber-600"
-                      : s.milestone === "110" ? "text-emerald-600"
-                      : "text-violet-700"
-                    }`}>
-                      {s.cumulativeTotal.toFixed(1)}
-                    </span>
-                    {s.milestone && (
-                      <Badge className={`border-0 text-[9px] font-bold px-1.5 py-0 shrink-0 ${
-                        s.milestone === "115" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                      }`}>
-                        {s.milestone}!
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {analysis.gapPath.length === 0 && (
-          <div className="mt-3 text-center py-4">
-            <CheckIcon className="h-6 w-6 text-emerald-500 mx-auto mb-1" />
-            <p className="text-xs font-medium text-emerald-600">Semua komponen sudah optimal!</p>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -684,7 +615,7 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
   const workInfo = useMemo(() => getRemainingWorkDays(), []);
 
   const allAnalysis = useMemo(() => {
-    return units.map(u => analyzeUnit(u)).sort((a, b) => b.totalKpi - a.totalKpi);
+    return units.map(u => analyzeOverview(u)).sort((a, b) => b.totalKpi - a.totalKpi);
   }, [units]);
 
   const exceedCount = allAnalysis.filter(a => a.totalKpi >= 110).length;
@@ -705,7 +636,7 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
           <ChevronRight className="h-3.5 w-3.5 rotate-180" />
           Kembali ke Ringkasan Semua Unit
         </button>
-        <UnitDetailPanel analysis={selected} />
+        <UnitDetailPanel analysis={selected} workDays={workInfo.days} />
       </div>
     );
   }
@@ -783,8 +714,6 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
       <div className="space-y-2">
         {allAnalysis.map((a) => {
           const st = statusBadge(a.totalKpi);
-          const topGap = a.cappedGaps.length > 0 ? a.cappedGaps[0] : null;
-          const worstUnlimited = a.unlimited.filter(u => u.achPct < 100).sort((x, y) => x.achPct - y.achPct)[0];
           return (
             <div key={a.unit.code}
               className="bg-white rounded-xl border hover:border-emerald-200 hover:shadow-sm transition-all cursor-pointer group"
@@ -800,7 +729,7 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-gray-800 truncate group-hover:text-emerald-700 transition-colors">{a.label}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {a.cappedMaxed}/{a.cappedTotal} capped max &middot; {a.unlimited.length} unlimited
+                        {a.cappedMaxed}/{a.cappedTotal} capped max &middot; {a.unlimitedCount} unlimited
                       </p>
                     </div>
                   </div>
@@ -838,32 +767,14 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {topGap && topGap.gap >= 1 && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 text-[9px] font-medium">
-                      <AlertTriangle className="h-2.5 w-2.5" />
-                      Gap terbesar: {topGap.name} ({topGap.achPct}%)
-                    </span>
-                  )}
-                  {worstUnlimited && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[9px] font-medium">
-                      <Infinity className="h-2.5 w-2.5" />
-                      {worstUnlimited.name} {worstUnlimited.achPct}%
-                    </span>
-                  )}
-                  {a.needFromUnlimitedFor110 > 0 && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-600 text-[9px] font-medium">
-                      <Zap className="h-2.5 w-2.5" />
-                      Butuh {a.needFromUnlimitedFor110} poin unlimited
-                    </span>
-                  )}
-                  {a.cappedGapPotential > 0 && (
+                {a.cappedGapPotential > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[9px] font-medium">
-                      <Lock className="h-2.5 w-2.5" />
-                      Potensi capped: +{a.cappedGapPotential} poin
+                      <Zap className="h-2.5 w-2.5" />
+                      Potensi capped: +{a.cappedGapPotential.toFixed(1)} poin
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -906,10 +817,10 @@ export function TargetAnalysis({ units, selectedUnitCode, onUnitSelect }: Target
                       {a.totalKpi.toFixed(1)}
                     </td>
                     <td className={`px-3 py-2 text-right font-bold tabular-nums ${a.gapTo110 <= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                      {a.gapTo110 > 0 ? `-${a.gapTo110.toFixed(1)}` : <CheckIcon className="h-3.5 w-3.5 text-emerald-500 inline" />}
+                      {a.gapTo110 > 0 ? `-${a.gapTo110.toFixed(1)}` : <Check className="h-3.5 w-3.5 text-emerald-500 inline" />}
                     </td>
                     <td className={`px-3 py-2 text-right font-bold tabular-nums ${a.gapTo115 <= 0 ? "text-amber-600" : "text-red-500"}`}>
-                      {a.gapTo115 > 0 ? `-${a.gapTo115.toFixed(1)}` : <CheckIcon className="h-3.5 w-3.5 text-amber-500 inline" />}
+                      {a.gapTo115 > 0 ? `-${a.gapTo115.toFixed(1)}` : <Check className="h-3.5 w-3.5 text-amber-500 inline" />}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-600">{a.cappedMaxed}/{a.cappedTotal}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-600">+{a.cappedGapPotential.toFixed(1)}</td>
