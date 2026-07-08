@@ -953,7 +953,7 @@ export default function Home() {
       )}
 
       {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
-      {selectedUnit && (activeView === "kpi" || activeView === "target") && (
+      {selectedUnit && activeView === "kpi" && (
         <div className="sticky top-[53px] z-30 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -1045,17 +1045,11 @@ export default function Home() {
               date={currentSnapshot?.date || ""}
             />
           ) : activeView === "target" ? (
-            selectedUnit ? (
-              <TargetAnalysis unit={selectedUnit} />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-                <Target className="h-12 w-12 mb-3 opacity-30" />
-                <p className="text-sm font-medium">Pilih outlet untuk analisis target</p>
-                <p className="text-xs mt-1 text-gray-300">
-                  Klik dropdown unit di header untuk melihat target KPI
-                </p>
-              </div>
-            )
+            <TargetAnalysis
+              units={latestUnits}
+              selectedUnitCode={selectedUnitCode}
+              onUnitSelect={(code) => setSelectedUnitCode(code)}
+            />
           ) : selectedUnit ? (
             <UnitDetailTable
               unit={selectedUnit}
