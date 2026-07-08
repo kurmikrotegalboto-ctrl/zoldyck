@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { SnapshotData } from "../kpi-types";
-import { supabase } from "../supabase";
+import { supabase } from "./supabase";
 
 const SALT_ROUNDS = 12;
 
