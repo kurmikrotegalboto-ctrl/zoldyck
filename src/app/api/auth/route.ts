@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set("auth_token", token, {
       httpOnly: true,
       secure: secure,
-      sameSite: "strict", // strict = no CSRF via form submission
+      sameSite: "lax", // lax = cookie dikirim saat navigasi dari link eksternal (WhatsApp, email, dll)
       maxAge: 24 * 60 * 60,
       path: "/",
     });

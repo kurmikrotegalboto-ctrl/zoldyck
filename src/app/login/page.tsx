@@ -21,12 +21,17 @@ export default function LoginPage() {
     setError("");
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 detik timeout
+      
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
+        signal: controller.signal,
       });
       
+      clearTimeout(timeoutId);
       const data = await res.json();
 
       if (res.ok) {
@@ -40,8 +45,12 @@ export default function LoginPage() {
           setRemaining(data.remainingAttempts);
         }
       }
-    } catch {
-      setError("Terjadi kesalahan koneksi");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Koneksi timeout. Periksa jaringan internet lalu coba lagi.");
+      } else {
+        setError("Terjadi kesalahan koneksi. Coba lagi dalam beberapa detik.");
+      }
     } finally {
       setLoading(false);
     }
