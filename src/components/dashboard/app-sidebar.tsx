@@ -146,7 +146,7 @@ export function AppSidebar({
                   collapsed ? "w-0 opacity-0 overflow-hidden" : "w-auto opacity-100"
                 }`}
               >
-                Menu KPI
+                KPI
               </span>
               {!collapsed && (
                 <ChevronDown
