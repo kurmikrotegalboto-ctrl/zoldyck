@@ -18,7 +18,7 @@ function isValidUnit(u: unknown): u is KpiUnit {
 
 export async function GET() {
   try {
-    const snapshots = getSnapshots();
+    const snapshots = await getSnapshots();
     return NextResponse.json({ snapshots });
   } catch (e) {
     console.error("Get snapshots error:", e);
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const snapshots = addOrUpdateSnapshot(snapshot);
+    const snapshots = await addOrUpdateSnapshot(snapshot);
     return NextResponse.json({ success: true, snapshots });
   } catch (e) {
     console.error("Save snapshot error:", e);
@@ -81,7 +81,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Parameter 'date' tidak valid (format: YYYY-MM-DD)" }, { status: 400 });
     }
 
-    const snapshots = deleteSnapshot(dateSort);
+    const snapshots = await deleteSnapshot(dateSort);
     return NextResponse.json({ success: true, snapshots });
   } catch (e) {
     console.error("Delete snapshot error:", e);

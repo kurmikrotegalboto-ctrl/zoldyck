@@ -3,8 +3,9 @@ import path from "path";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { SnapshotData } from "../kpi-types";
+import { supabase } from "../supabase";
 
-// ── Paths ──
+// ── Paths (only used for auth) ──
 function getProjectRoot(): string {
   const envDataDir = process.env.DATA_DIR;
   if (envDataDir) return envDataDir;
@@ -12,7 +13,6 @@ function getProjectRoot(): string {
 }
 
 const DATA_DIR = getProjectRoot();
-const SNAPSHOTS_FILE = path.join(DATA_DIR, "snapshots.json");
 const AUTH_FILE = path.join(DATA_DIR, "auth.json");
 const SALT_ROUNDS = 12;
 
@@ -30,21 +30,16 @@ function ensureDataDir() {
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Token secret: from env var ONLY (required for Edge-compatible middleware)
-// If not set, generate one at startup and log it (must be set on Vercel)
 let _cachedSecret: string | null = null;
 
 function getTokenSecret(): string {
   if (_cachedSecret) return _cachedSecret;
-  // 1. Explicit TOKEN_SECRET env var (best)
   const envSecret = process.env.TOKEN_SECRET;
   if (envSecret) { _cachedSecret = envSecret; return envSecret; }
-  // 2. Derive from AUTH_PASSWORD_HASH (already set on Vercel, works in Edge)
   const pwHash = process.env.AUTH_PASSWORD_HASH || ENV_PASSWORD_HASH;
   if (pwHash) { _cachedSecret = pwHash; return pwHash; }
-  // 3. Fallback: generate ephemeral secret
   const secret = crypto.randomBytes(32).toString("hex");
   _cachedSecret = secret;
-  // Fallback: generate ephemeral secret (no log to avoid info leak)
   return secret;
 }
 
@@ -58,11 +53,7 @@ export function createSignedToken(): string {
   return `${payload}.${signature}`;
 }
 
-/**
- * Verify a token (Node.js runtime) — returns true only if:
- * 1. HMAC signature matches (proves server issued it)
- * 2. Token has not expired
- */
+/** Verify a token (Node.js runtime) */
 export function verifySignedToken(token: string): boolean {
   try {
     const secret = getTokenSecret();
@@ -96,7 +87,6 @@ const ENV_USERNAME = process.env.AUTH_USERNAME || "admin";
 interface AuthData {
   passwordHash?: string;
   username?: string;
-  tokenSecret?: string;
 }
 
 function loadAuthData(): AuthData {
@@ -119,18 +109,14 @@ function saveAuthData(data: AuthData): void {
 }
 
 function getEffectiveHash(): string {
-  // 1. Env var takes priority (production best practice)
   if (ENV_PASSWORD_HASH) return ENV_PASSWORD_HASH;
 
-  // 2. File-based hash (persisted password change)
   const authData = loadAuthData();
   if (authData.passwordHash) return authData.passwordHash;
 
-  // 3. Generate a random password for first run
-  const randomPwd = crypto.randomBytes(8).toString("hex"); // 16-char random password
+  const randomPwd = crypto.randomBytes(8).toString("hex");
   const hash = bcrypt.hashSync(randomPwd, SALT_ROUNDS);
   saveAuthData({ passwordHash: hash });
-  // Random password generated (no console log to avoid leak)
   return hash;
 }
 
@@ -198,7 +184,6 @@ export function changePassword(currentPassword: string, newPassword: string): { 
     return { success: false, error: "Password lama salah" };
   }
 
-  // Persist the new hash to file
   const newHash = bcrypt.hashSync(newPassword, SALT_ROUNDS);
   const authData = loadAuthData();
   authData.passwordHash = newHash;
@@ -208,59 +193,91 @@ export function changePassword(currentPassword: string, newPassword: string): { 
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SNAPSHOTS STORAGE
+// SNAPSHOTS STORAGE — Supabase (persistent)
 // ══════════════════════════════════════════════════════════════════
 
-export function getSnapshots(): SnapshotData[] {
-  ensureDataDir();
+export async function getSnapshots(): Promise<SnapshotData[]> {
   try {
-    if (fs.existsSync(SNAPSHOTS_FILE)) {
-      const raw = fs.readFileSync(SNAPSHOTS_FILE, "utf-8");
-      return JSON.parse(raw) as SnapshotData[];
+    const { data, error } = await supabase
+      .from("snapshots")
+      .select("date, date_sort, units")
+      .order("date_sort", { ascending: true });
+
+    if (error) {
+      console.error("Supabase getSnapshots error:", error.message);
+      return [];
     }
-  } catch (e) {
-    console.error("Error reading snapshots:", e);
-  }
-  return [];
-}
 
-export function saveSnapshots(snapshots: SnapshotData[]): void {
-  ensureDataDir();
-  try {
-    fs.writeFileSync(SNAPSHOTS_FILE, JSON.stringify(snapshots, null, 2), "utf-8");
+    return (data || []).map((row) => ({
+      date: row.date,
+      dateSort: row.date_sort,
+      units: row.units,
+    }));
   } catch (e) {
-    console.error("Error saving snapshots:", e);
+    console.error("getSnapshots error:", e);
+    return [];
   }
 }
 
-export function addOrUpdateSnapshot(newSnapshot: SnapshotData): SnapshotData[] {
-  const snapshots = getSnapshots();
-  const existingIdx = snapshots.findIndex((s) => s.dateSort === newSnapshot.dateSort);
+export async function addOrUpdateSnapshot(newSnapshot: SnapshotData): Promise<SnapshotData[]> {
+  // Check if snapshot exists for this date
+  const { data: existing, error: fetchError } = await supabase
+    .from("snapshots")
+    .select("units")
+    .eq("date_sort", newSnapshot.dateSort)
+    .maybeSingle();
 
-  if (existingIdx >= 0) {
-    const existing = snapshots[existingIdx];
-    const updatedUnits = [...existing.units];
+  if (fetchError) {
+    console.error("Supabase fetch error:", fetchError.message);
+    throw new Error("Gagal mengecek data snapshot");
+  }
+
+  let finalUnits = newSnapshot.units;
+
+  // Merge logic: if snapshot exists, merge units at unit-code level
+  if (existing?.units) {
+    const currentUnits = [...existing.units];
     for (const unit of newSnapshot.units) {
-      const unitIdx = updatedUnits.findIndex((u) => u.code === unit.code);
+      const unitIdx = currentUnits.findIndex((u: { code: string }) => u.code === unit.code);
       if (unitIdx >= 0) {
-        updatedUnits[unitIdx] = unit;
+        currentUnits[unitIdx] = unit;
       } else {
-        updatedUnits.push(unit);
+        currentUnits.push(unit);
       }
     }
-    snapshots[existingIdx] = { ...existing, units: updatedUnits };
-  } else {
-    snapshots.push(newSnapshot);
+    finalUnits = currentUnits;
   }
 
-  snapshots.sort((a, b) => a.dateSort.localeCompare(b.dateSort));
-  saveSnapshots(snapshots);
-  return snapshots;
+  // Upsert with merged units
+  const { error: upsertError } = await supabase
+    .from("snapshots")
+    .upsert(
+      {
+        date: newSnapshot.date,
+        date_sort: newSnapshot.dateSort,
+        units: finalUnits,
+      },
+      { onConflict: "date_sort" }
+    );
+
+  if (upsertError) {
+    console.error("Supabase upsert error:", upsertError.message);
+    throw new Error("Gagal menyimpan snapshot ke database");
+  }
+
+  return getSnapshots();
 }
 
-export function deleteSnapshot(dateSort: string): SnapshotData[] {
-  let snapshots = getSnapshots();
-  snapshots = snapshots.filter((s) => s.dateSort !== dateSort);
-  saveSnapshots(snapshots);
-  return snapshots;
+export async function deleteSnapshot(dateSort: string): Promise<SnapshotData[]> {
+  const { error } = await supabase
+    .from("snapshots")
+    .delete()
+    .eq("date_sort", dateSort);
+
+  if (error) {
+    console.error("Supabase delete error:", error.message);
+    throw new Error("Gagal menghapus snapshot dari database");
+  }
+
+  return getSnapshots();
 }
