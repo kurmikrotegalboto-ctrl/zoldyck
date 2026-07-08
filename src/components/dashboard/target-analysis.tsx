@@ -89,16 +89,13 @@ interface UnitOverview {
 function fmtVal(value: number, satuan: string): string {
   const abs = Math.abs(value);
   if (satuan === "Rp") {
-    if (abs >= 1e12) return `Rp ${(abs / 1e12).toFixed(2).replace(".", ",")} T`;
-    if (abs >= 1e9) return `Rp ${(abs / 1e9).toFixed(2).replace(".", ",")} M`;
-    if (abs >= 1e6) return `Rp ${(abs / 1e6).toFixed(1).replace(".", ",")} Jt`;
     return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
   }
   if (satuan === "Jumlah") {
     return Math.round(abs).toLocaleString("id-ID");
   }
   if (satuan === "Gramasi") {
-    return `${abs.toFixed(1).replace(".", ",")} gram`;
+    return `${abs.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} gram`;
   }
   if (satuan === "%") {
     return `${abs.toFixed(2).replace(".", ",")}%`;
@@ -111,16 +108,13 @@ function fmtDaily(value: number, satuan: string, isInverse: boolean): string {
   const abs = Math.abs(value);
   const arrow = isInverse ? "\u2193" : "\u2191";
   if (satuan === "Rp") {
-    if (abs >= 1e9) return `${arrow} Rp ${(abs / 1e9).toFixed(2).replace(".", ",")} M/hari`;
-    if (abs >= 1e6) return `${arrow} Rp ${(abs / 1e6).toFixed(1).replace(".", ",")} Jt/hari`;
-    if (abs >= 1e3) return `${arrow} Rp ${Math.round(abs).toLocaleString("id-ID")}/hari`;
-    return `${arrow} Rp ${Math.round(abs)}/hari`;
+    return `${arrow} Rp ${Math.round(abs).toLocaleString("id-ID")}/hari`;
   }
   if (satuan === "Jumlah") {
     return `${arrow} ${Math.round(abs).toLocaleString("id-ID")}/hari`;
   }
   if (satuan === "Gramasi") {
-    return `${arrow} ${abs.toFixed(1).replace(".", ",")} gram/hari`;
+    return `${arrow} ${abs.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} gram/hari`;
   }
   if (satuan === "%") {
     return `${arrow} ${abs.toFixed(4).replace(".", ",")}%/hari`;
