@@ -436,7 +436,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return `${abs.toFixed(2)}/hari`;
     };
 
-    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari"];
+    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target Tahunan", "Status", "Gap (Satuan)", "Target / Hari"];
     const dataRows = rawRows.map((r, i) => [
         i + 1,
         r.name,
@@ -467,7 +467,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       { wch: 10 },  // Satuan
       { wch: 7 },   // Bobot
       { wch: 10 },  // ACH
-      { wch: 30 },  // Target (RKAP)
+      { wch: 30 },  // Target Tahunan
       { wch: 20 },  // Status
       { wch: 30 },  // Gap
       { wch: 35 },  // Daily
@@ -547,7 +547,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         fmtDly(r),
     ]);
 
-    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari"]];
+    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target Tahunan", "Status", "Gap (Satuan)", "Target / Hari"]];
 
     autoTable(doc, {
       startY: 17,
@@ -575,7 +575,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         2:  { halign: "center", cellWidth: 10 },    // Satuan
         3:  { halign: "center", cellWidth: 9 },     // Bobot
         4:  { halign: "right",  cellWidth: 15 },    // ACH
-        5:  { halign: "right",  cellWidth: 50 },    // Target (RKAP)
+        5:  { halign: "right",  cellWidth: 50 },    // Target Tahunan
         6:  { halign: "center", cellWidth: 16 },    // Status
         7:  { halign: "right",  cellWidth: 55 },    // Gap
         8:  { halign: "right",  cellWidth: 55 },    // Daily
@@ -783,7 +783,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                     {sortMode === "ach_desc" && <ArrowDown className="h-2.5 w-2.5 text-emerald-600" />}
                   </button>
                 </th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-40">Target (RKAP)</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-40">Target Tahunan</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-36">Gap (Satuan)</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-44">Target / Hari</th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Poin</th>
