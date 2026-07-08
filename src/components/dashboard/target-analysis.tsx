@@ -70,6 +70,8 @@ interface StrategyRow {
   currentAch: number;       // e.g. 93.68
   targetAch: number;        // 110, 115, or 120
   targetLabel: string;      // "Exceed" | "Super Exceed"
+  targetValue: number;      // actual RKAP target (e.g. 65.834.609.329)
+  realisasiValue: number;   // current realisasi
   gapInSatuan: number;      // positive = need to close (increase for normal, decrease for inverse)
   dailyTarget: number;
   status: "chase" | "super_chase" | "achieved";
@@ -90,21 +92,38 @@ interface UnitOverview {
 
 // ─── Number formatting ──────────────────────────────────────────────────
 
-function fmtVal(value: number, satuan: string): string {
+function fmtVal(value: number, satuan: string, prefix?: string): string {
   const abs = Math.abs(value);
+  const p = prefix || "";
   if (satuan === "Rp") {
-    return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
+    return `${p}Rp ${Math.round(abs).toLocaleString("id-ID")}`;
   }
   if (satuan === "Jumlah") {
-    return Math.round(abs).toLocaleString("id-ID");
+    return `${p}${Math.round(abs).toLocaleString("id-ID")}`;
   }
   if (satuan === "Gramasi") {
-    return `${abs.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} gram`;
+    return `${p}${abs.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} (gr)`;
   }
   if (satuan === "%") {
-    return `${abs.toFixed(2).replace(".", ",")}%`;
+    return `${p}${abs.toFixed(2).replace(".", ",")} (%)`;
   }
-  return abs.toFixed(2);
+  return `${p}${abs.toFixed(2)}`;
+}
+
+function fmtTarget(value: number, satuan: string): string {
+  if (satuan === "Rp") {
+    return `Rp ${Math.round(value).toLocaleString("id-ID")}`;
+  }
+  if (satuan === "Jumlah") {
+    return Math.round(value).toLocaleString("id-ID");
+  }
+  if (satuan === "Gramasi") {
+    return `${value.toLocaleString("id-ID", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} (gr)`;
+  }
+  if (satuan === "%") {
+    return `${value.toFixed(2).replace(".", ",")} (%)`;
+  }
+  return value.toFixed(2);
 }
 
 function fmtDaily(value: number, satuan: string, isInverse: boolean): string {
@@ -201,6 +220,8 @@ function buildStrategyRows(unit: KpiUnit, workDays: number): StrategyRow[] {
       currentAch: achPct,
       targetAch,
       targetLabel,
+      targetValue: c.target,
+      realisasiValue: c.realisasi,
       gapInSatuan: Math.round(gap * 100) / 100,
       dailyTarget: Math.round(dailyTarget * 100) / 100,
       status,
@@ -388,27 +409,34 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
 
     // Build sheet rows from rawRows (always gap-desc order)
     const statusLabel = (s: string) => s === "chase" ? "Chase Exceed" : s === "super_chase" ? "Chase Super Exceed" : "Sudah Capai";
+    const fmtNum = (n: number) => Math.round(n).toLocaleString("id-ID");
+    const targetStr = (r: StrategyRow) => {
+      if (r.satuan === "Rp") return `Rp ${fmtNum(r.targetValue)}`;
+      if (r.satuan === "Jumlah") return fmtNum(r.targetValue);
+      if (r.satuan === "Gramasi") return `${r.targetValue.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `${r.targetValue.toFixed(2).replace(".",",")} (%)`;
+      return String(r.targetValue);
+    };
     const gapStr = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
       const abs = Math.abs(r.gapInSatuan);
-      if (r.satuan === "Rp") return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
-      if (r.satuan === "Jumlah") return Math.round(abs).toLocaleString("id-ID");
-      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} gram`;
-      if (r.satuan === "%") return `${abs.toFixed(2).replace(".",",")}%`;
-      return String(abs);
+      if (r.satuan === "Rp") return `-Rp ${fmtNum(abs)}`;
+      if (r.satuan === "Jumlah") return `-${fmtNum(abs)}`;
+      if (r.satuan === "Gramasi") return `-${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `-${abs.toFixed(2).replace(".",",")} (%)`;
+      return `-${abs}`;
     };
     const dailyStr = (r: StrategyRow) => {
       if (r.status === "achieved") return "Sudah Capai";
       const abs = Math.abs(r.dailyTarget);
-      const arrow = r.isInverse ? "↓" : "↑";
-      if (r.satuan === "Rp") return `${arrow} Rp ${Math.round(abs).toLocaleString("id-ID")}/hari`;
-      if (r.satuan === "Jumlah") return `${arrow} ${Math.round(abs).toLocaleString("id-ID")}/hari`;
-      if (r.satuan === "Gramasi") return `${arrow} ${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} gram/hari`;
-      if (r.satuan === "%") return `${arrow} ${abs.toFixed(4).replace(".",",")}%/hari`;
-      return `${arrow} ${abs.toFixed(2)}/hari`;
+      if (r.satuan === "Rp") return `Rp ${fmtNum(abs)}/hari`;
+      if (r.satuan === "Jumlah") return `${fmtNum(abs)}/hari`;
+      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)/hari`;
+      if (r.satuan === "%") return `${abs.toFixed(4).replace(".",",")} (%)/hari`;
+      return `${abs.toFixed(2)}/hari`;
     };
 
-    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (%)", "Label Target", "Status", "Gap (Satuan)", "Target / Hari", "Poin Gain", "KPI Kumulatif"];
+    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kumulatif"];
     const dataRows = rawRows.map((r, i) => {
       const sim = simulationData.find(s => s.name === r.name);
       return [
@@ -417,12 +445,10 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         r.satuan,
         r.bobot,
         r.currentAch,
-        r.targetAch,
-        r.targetLabel,
+        targetStr(r),
         statusLabel(r.status),
         gapStr(r),
         dailyStr(r),
-        sim ? sim.gain : 0,
         sim ? sim.cumulative : analysis.totalKpi,
       ];
     });
@@ -445,19 +471,17 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       { wch: 10 },  // Satuan
       { wch: 7 },   // Bobot
       { wch: 10 },  // ACH
-      { wch: 10 },  // Target
-      { wch: 16 },  // Label
+      { wch: 30 },  // Target (RKAP)
       { wch: 20 },  // Status
       { wch: 30 },  // Gap
       { wch: 35 },  // Daily
-      { wch: 12 },  // Gain
-      { wch: 14 },  // Cumul
+      { wch: 14 },  // Kum
     ];
 
     // Merge title
     ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 11 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -489,22 +513,29 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
     // ── Helpers ──
     const statusLabel = (s: string) => s === "chase" ? "Chase" : s === "super_chase" ? "S.Chase" : "Capai";
     const fmtNum = (n: number) => Math.round(n).toLocaleString("id-ID");
+    const fmtTgt = (r: StrategyRow) => {
+      if (r.satuan === "Rp") return `Rp ${fmtNum(r.targetValue)}`;
+      if (r.satuan === "Jumlah") return fmtNum(r.targetValue);
+      if (r.satuan === "Gramasi") return `${r.targetValue.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `${r.targetValue.toFixed(2).replace(".",",")} (%)`;
+      return r.targetValue.toFixed(2);
+    };
     const fmtGap = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
       const abs = Math.abs(r.gapInSatuan);
-      if (r.satuan === "Rp") return `Rp ${fmtNum(abs)}`;
-      if (r.satuan === "Jumlah") return fmtNum(abs);
-      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g`;
-      if (r.satuan === "%") return `${abs.toFixed(2).replace(".",",")}%`;
-      return abs.toFixed(2);
+      if (r.satuan === "Rp") return `-Rp ${fmtNum(abs)}`;
+      if (r.satuan === "Jumlah") return `-${fmtNum(abs)}`;
+      if (r.satuan === "Gramasi") return `-${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `-${abs.toFixed(2).replace(".",",")} (%)`;
+      return `-${abs.toFixed(2)}`;
     };
     const fmtDly = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
       const abs = Math.abs(r.dailyTarget);
       if (r.satuan === "Rp") return `Rp ${fmtNum(abs)}/hari`;
       if (r.satuan === "Jumlah") return `${fmtNum(abs)}/hari`;
-      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g/hari`;
-      if (r.satuan === "%") return `${abs.toFixed(4).replace(".",",")}%/hari`;
+      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)/hari`;
+      if (r.satuan === "%") return `${abs.toFixed(4).replace(".",",")} (%)/hari`;
       return `${abs.toFixed(2)}/hari`;
     };
 
@@ -517,7 +548,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         r.satuan,
         r.bobot,
         r.currentAch.toFixed(1) + "%",
-        r.targetAch + "%",
+        fmtTgt(r),
         statusLabel(r.status),
         fmtGap(r),
         fmtDly(r),
@@ -525,7 +556,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       ];
     });
 
-    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kum."]];
+    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kum."]];
 
     autoTable(doc, {
       startY: 17,
@@ -553,7 +584,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         2:  { halign: "center", cellWidth: 9 },     // Satuan
         3:  { halign: "center", cellWidth: 8 },     // Bobot
         4:  { halign: "right",  cellWidth: 13 },    // ACH
-        5:  { halign: "center", cellWidth: 12 },    // Target
+        5:  { halign: "right",  cellWidth: 42 },    // Target (RKAP)
         6:  { halign: "center", cellWidth: 14 },    // Status
         7:  { halign: "right",  cellWidth: 48 },    // Gap
         8:  { halign: "right",  cellWidth: 48 },    // Daily
@@ -762,7 +793,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                     {sortMode === "ach_desc" && <ArrowDown className="h-2.5 w-2.5 text-emerald-600" />}
                   </button>
                 </th>
-                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-20">Target</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-40">Target (RKAP)</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-36">Gap (Satuan)</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-44">Target / Hari</th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Poin</th>
@@ -834,32 +865,19 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                       </div>
                     </td>
 
-                    {/* Target */}
-                    <td className="px-2 py-2.5 text-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className={`font-black tabular-nums text-[12px] ${r.targetAch >= 115 ? "text-amber-600" : "text-emerald-600"}`}>
-                          {r.targetAch}%
-                        </span>
-                        <span className={`text-[8px] font-bold ${r.targetAch >= 115 ? "text-amber-500" : "text-emerald-500"}`}>
-                          {r.targetLabel}
-                        </span>
-                      </div>
+                    {/* Target (RKAP actual value) */}
+                    <td className="px-2 py-2.5 text-right">
+                      <span className="font-bold tabular-nums text-[10px] text-gray-700">
+                        {fmtTarget(r.targetValue, r.satuan)}
+                      </span>
                     </td>
 
-                    {/* Gap in satuan */}
-                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${r.status === "achieved" ? "text-emerald-500" : "text-gray-800"}`}>
+                    {/* Gap in satuan - minus prefix if not achieved */}
+                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${r.status === "achieved" ? "text-emerald-500" : "text-red-600"}`}>
                       {r.status === "achieved" ? (
                         <span className="text-emerald-500 font-medium">-</span>
-                      ) : r.isInverse ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <ArrowDownRight className="h-3 w-3 text-orange-500 shrink-0" />
-                          <span>{fmtVal(r.gapInSatuan, r.satuan)}</span>
-                        </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-1">
-                          <ArrowUpRight className="h-3 w-3 text-red-500 shrink-0" />
-                          <span>{fmtVal(r.gapInSatuan, r.satuan)}</span>
-                        </div>
+                        <span>{fmtVal(r.gapInSatuan, r.satuan, "-")}</span>
                       )}
                     </td>
 
