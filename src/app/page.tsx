@@ -22,6 +22,7 @@ import {
   ArrowLeftRight,
   CalendarIcon,
   Download,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ import { UnitDetailTable } from "@/components/dashboard/unit-detail-table";
 import { TrendCharts } from "@/components/dashboard/trend-charts";
 import { CompareCalendar } from "@/components/dashboard/compare-calendar";
 import { KpiAnalysis } from "@/components/dashboard/kpi-analysis";
+import { TargetAnalysis } from "@/components/dashboard/target-analysis";
 import { defaultSnapshot } from "@/lib/default-data";
 import { parseMultipleFiles } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
@@ -117,7 +119,7 @@ export default function Home() {
   const [snapshots, setSnapshots] = useState<SnapshotData[]>([defaultSnapshot]);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
   const [selectedUnitCode, setSelectedUnitCode] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"kpi" | "trend" | "analisis">("kpi");
+  const [activeView, setActiveView] = useState<"kpi" | "trend" | "analisis" | "target">("kpi");
   const [isServerMode, setIsServerMode] = useState(false);
 
   // ── Upload state ──
@@ -633,6 +635,17 @@ export default function Home() {
                 <Activity className="h-3 w-3" />
                 Analisis
               </button>
+              <button
+                onClick={() => setActiveView("target")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  activeView === "target"
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Target className="h-3 w-3" />
+                Target
+              </button>
             </div>
 
             {/* Period Selector */}
@@ -940,7 +953,7 @@ export default function Home() {
       )}
 
       {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
-      {selectedUnit && activeView === "kpi" && (
+      {selectedUnit && (activeView === "kpi" || activeView === "target") && (
         <div className="sticky top-[53px] z-30 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -1031,6 +1044,18 @@ export default function Home() {
               units={latestUnits}
               date={currentSnapshot?.date || ""}
             />
+          ) : activeView === "target" ? (
+            selectedUnit ? (
+              <TargetAnalysis unit={selectedUnit} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+                <Target className="h-12 w-12 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Pilih outlet untuk analisis target</p>
+                <p className="text-xs mt-1 text-gray-300">
+                  Klik dropdown unit di header untuk melihat target KPI
+                </p>
+              </div>
+            )
           ) : selectedUnit ? (
             <UnitDetailTable
               unit={selectedUnit}
@@ -1085,6 +1110,17 @@ export default function Home() {
           >
             <Activity className="h-5 w-5" />
             <span className="text-[10px] font-medium">Analisis</span>
+          </button>
+          <button
+            onClick={() => setActiveView("target")}
+            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              activeView === "target"
+                ? "text-emerald-700"
+                : "text-gray-400"
+            }`}
+          >
+            <Target className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Target</span>
           </button>
 
           {/* Floating Upload Button */}
