@@ -54,7 +54,7 @@ async function verifyTokenAsync(token: string): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+  if (pathname === "/login" || pathname === "/robots.txt" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     const response = NextResponse.next();
     setSecurityHeaders(response);
     return response;
@@ -90,7 +90,6 @@ export async function middleware(request: NextRequest) {
 function setSecurityHeaders(response: NextResponse) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");

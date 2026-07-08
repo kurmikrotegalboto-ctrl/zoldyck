@@ -28,14 +28,14 @@ export async function POST(request: NextRequest) {
 
     if (result.locked) {
       return NextResponse.json(
-        { error: "Akun terkunci karena terlalu banyak percobaan. Coba lagi dalam 15 menit.", locked: true },
+        { error: "Terlalu banyak percobaan. Coba lagi nanti.", locked: true },
         { status: 429 }
       );
     }
 
     if (!result.success) {
       return NextResponse.json(
-        { error: "Password salah", remainingAttempts: result.remainingAttempts },
+        { error: "Username atau password salah" },
         { status: 401 }
       );
     }
