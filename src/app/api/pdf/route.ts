@@ -75,6 +75,12 @@ function buildRows(unit: KpiUnit, prevUnit?: KpiUnit): RowData[] {
 
 export async function POST(req: NextRequest) {
   try {
+    // Reject oversized payloads
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: "Payload terlalu besar" }, { status: 413 });
+    }
+
     const body = await req.json();
     const { unit, unitLabel, date, prevUnit, compareLabel } = body as {
       unit: KpiUnit; unitLabel: string; date: string; prevUnit?: KpiUnit; compareLabel?: string;

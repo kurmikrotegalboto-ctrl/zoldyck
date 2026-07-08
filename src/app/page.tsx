@@ -199,8 +199,8 @@ export default function Home() {
             return;
           }
         }
-      } catch (e) {
-        console.error("localStorage read error:", e);
+      } catch {
+        // silently ignore localStorage errors
       }
 
       try {
@@ -216,13 +216,13 @@ export default function Home() {
                 STORAGE_KEY,
                 JSON.stringify(data.snapshots)
               );
-            } catch (e) {
-              console.error("localStorage save error:", e);
+            } catch {
+              // localStorage unavailable or full
             }
           }
         }
-      } catch (e) {
-        console.error("Failed to fetch snapshots:", e);
+      } catch {
+        // server unreachable — will use local data only
       }
     };
     init();
@@ -334,8 +334,8 @@ export default function Home() {
             body: JSON.stringify({ snapshot }),
           });
         }
-      } catch (e) {
-        console.error("Server upload failed (data saved locally):", e);
+      } catch {
+        // server unreachable — data saved locally only
       }
     } catch {
       setFileStatuses((prev) =>
@@ -369,8 +369,8 @@ export default function Home() {
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
-    } catch (e) {
-      console.error("localStorage delete error:", e);
+    } catch {
+      // localStorage unavailable
     }
 
     try {
@@ -389,6 +389,7 @@ export default function Home() {
 
   // ── Auth handlers ──
   const handleLogout = async () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     await fetch("/api/auth", { method: "DELETE" });
     window.location.href = "/login";
   };
@@ -459,9 +460,8 @@ export default function Home() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("PDF download failed:", error);
-      alert("Gagal membuat PDF: " + (error instanceof Error ? error.message : "Unknown error"));
+    } catch {
+      alert("Gagal membuat PDF");
     } finally {
       setIsGeneratingPdf(false);
     }

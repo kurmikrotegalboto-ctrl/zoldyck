@@ -57,6 +57,10 @@ export async function middleware(request: NextRequest) {
   if (pathname === "/login" || pathname === "/robots.txt" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     const response = NextResponse.next();
     setSecurityHeaders(response);
+    // Extra: never cache the login page
+    if (pathname === "/login") {
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    }
     return response;
   }
 
@@ -97,9 +101,10 @@ function setSecurityHeaders(response: NextResponse) {
     "Content-Security-Policy",
     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   );
-  if (response.headers.get("content-type")?.includes("json")) {
-    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-  }
+  // Prevent all pages from being cached (sensitive KPI data)
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
 }
 
 export const config = {
