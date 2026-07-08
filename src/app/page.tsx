@@ -9,21 +9,18 @@ import {
   AlertCircle,
   Loader2,
   ChevronDown,
-  Activity,
   CalendarDays,
-  LogOut,
   Trash2,
   Settings,
   Key,
-  TrendingUp,
-  BarChart3,
   Building2,
   ChevronRight,
   ArrowLeftRight,
   CalendarIcon,
   Download,
-  Target,
+  Menu,
 } from "lucide-react";
+import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -150,6 +147,10 @@ export default function Home() {
   const [pwdMsg, setPwdMsg] = useState("");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
+  // ── Sidebar state ──
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   // ── Derived data ──
   const currentSnapshot = snapshots[selectedSnapshotIndex] ?? snapshots[0];
   const prevSnapshot =
@@ -187,7 +188,6 @@ export default function Home() {
   // ── localStorage persistence ──
   useEffect(() => {
     const init = async () => {
-      // Try localStorage first
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -196,14 +196,13 @@ export default function Home() {
             setSnapshots(parsed);
             setSelectedSnapshotIndex(parsed.length - 1);
             setIsServerMode(true);
-            return; // Don't fetch from server if localStorage has data
+            return;
           }
         }
       } catch (e) {
         console.error("localStorage read error:", e);
       }
 
-      // Fallback: try server
       try {
         const res = await fetch("/api/snapshots");
         if (res.ok) {
@@ -212,7 +211,6 @@ export default function Home() {
             setSnapshots(data.snapshots);
             setSelectedSnapshotIndex(data.snapshots.length - 1);
             setIsServerMode(true);
-            // Save to localStorage for future
             try {
               localStorage.setItem(
                 STORAGE_KEY,
@@ -230,7 +228,6 @@ export default function Home() {
     init();
   }, []);
 
-  // Save to localStorage whenever snapshots change
   useEffect(() => {
     if (isServerMode && snapshots.length > 0) {
       try {
@@ -267,12 +264,10 @@ export default function Home() {
       const parsed = await parseMultipleFiles(pendingFiles);
       const parsedFilenames = new Set(parsed.map((p) => p.filename));
 
-      // Update statuses based on parse result
       setFileStatuses((prev) =>
         prev.map((s) => {
           if (s.status !== "parsing") return s;
           if (parsedFilenames.has(s.file.name)) {
-            // Check if this is an update or new
             const parsedFile = parsed.find((p) => p.filename === s.file.name);
             const isUpdate = parsedFile
               ? existingDateSorts.has(parsedFile.dateSort)
@@ -296,7 +291,6 @@ export default function Home() {
         return;
       }
 
-      // Group parsed files by date
       const dateGroups: Record<
         string,
         { date: string; dateSort: string; units: KpiUnit[] }
@@ -312,7 +306,6 @@ export default function Home() {
         dateGroups[pf.dateSort].units.push(pf.unit);
       });
 
-      // Client-side merge
       let updatedSnapshots = [...snapshots];
       for (const group of Object.values(dateGroups)) {
         const snapshot: SnapshotData = {
@@ -328,7 +321,6 @@ export default function Home() {
       setIsServerMode(true);
       setPendingFiles([]);
 
-      // Best-effort POST to server (may fail silently)
       try {
         for (const group of Object.values(dateGroups)) {
           const snapshot: SnapshotData = {
@@ -371,7 +363,6 @@ export default function Home() {
       setSelectedSnapshotIndex(0);
     }
 
-    // Remove from localStorage
     try {
       if (updated.length > 0) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -382,7 +373,6 @@ export default function Home() {
       console.error("localStorage delete error:", e);
     }
 
-    // Best-effort server delete
     try {
       await fetch(`/api/snapshots?date=${encodeURIComponent(deleteDate)}`, {
         method: "DELETE",
@@ -428,7 +418,7 @@ export default function Home() {
     ? compareSnapshot?.date
     : undefined;
 
-  // ── PDF Download Handler (server-side generation) ──
+  // ── PDF Download Handler ──
   const handleDownloadPdf = useCallback(async () => {
     if (!selectedUnit || isGeneratingPdf) return;
     setIsGeneratingPdf(true);
@@ -453,7 +443,6 @@ export default function Home() {
 
       const blob = await res.blob();
 
-      // Validate it's actually a PDF
       if (blob.type && blob.type !== "application/pdf" && !blob.type.startsWith("application/pdf")) {
         throw new Error("Response is not a PDF file");
       }
@@ -462,7 +451,6 @@ export default function Home() {
       const match = disposition.match(/filename="(.+?)"/);
       const filename = match ? match[1] : "KPI_Report.pdf";
 
-      // Trigger download
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -505,517 +493,217 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0f4f8]">
-      {/* ═══ GLASSMORPHISM HEADER ═══ */}
-      <header className="glass-header sticky top-0 z-50 px-3 md:px-5 py-2">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          {/* Left: Logo + KPI Unit Popover */}
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <Activity className="h-4 w-4 text-emerald-600 shrink-0 hidden sm:block" />
-            <h1 className="text-[11px] md:text-xs font-black tracking-tight bg-gradient-to-r from-emerald-700 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">
-              MONEV KPI / TEGALBOTO 2026
-            </h1>
-            {isServerMode && (
-              <Badge
-                variant="outline"
-                className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 hidden sm:inline-flex px-1.5 py-0"
-              >
-                Online
-              </Badge>
-            )}
+      {/* ═══ SIDEBAR ═══ */}
+      <AppSidebar
+        activeView={activeView}
+        setActiveView={setActiveView}
+        showUpload={showUpload}
+        setShowUpload={setShowUpload}
+        onOpenSettings={() => {
+          setShowSettings(true);
+          setPwdMsg("");
+          setCurrentPwd("");
+          setNewPwd("");
+        }}
+        onLogout={handleLogout}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
 
-            {/* KPI Unit Dropdown (Popover) */}
-            <Popover open={showUnitPopover} onOpenChange={setShowUnitPopover}>
-              <PopoverTrigger asChild>
-                <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white/60 transition-colors text-xs font-medium text-gray-700 border border-gray-200/60 bg-white/40">
-                  <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  <span className="max-w-[100px] md:max-w-[140px] truncate">
-                    {selectedUnit
-                      ? UNIT_LIST.find((u) => u.code === selectedUnit.code)
-                          ?.short || selectedUnit.name
-                      : "Pilih Unit"}
-                  </span>
-                  <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-[260px] p-2"
-                align="start"
-                sideOffset={6}
+      {/* ═══ MAIN WRAPPER ═══ */}
+      <div
+        className={`
+          main-content-area flex flex-col min-h-screen
+          md:ml-16 lg:ml-60
+          ${isSidebarCollapsed ? "!md:ml-16 !lg:ml-16" : ""}
+        `}
+      >
+        {/* ═══ SLIM TOP BAR ═══ */}
+        <header className="top-bar sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-gray-200/60 shadow-sm">
+          <div className="flex items-center justify-between gap-2 px-3 md:px-4 py-2">
+            {/* Left: Hamburger (mobile) + Online badge + Unit Selector */}
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                aria-label="Open menu"
               >
-                <div className="space-y-0.5">
-                  {UNIT_LIST.map((u) => {
-                    const unit = latestUnits.find((lu) => lu.code === u.code);
-                    const hasData = !!unit;
-                    const isActive = selectedUnitCode === u.code;
-                    return (
-                      <button
-                        key={u.code}
-                        onClick={() => {
-                          if (hasData) {
-                            setSelectedUnitCode(u.code);
-                            setActiveView("kpi");
-                            setShowUnitPopover(false);
-                          }
-                        }}
-                        disabled={!hasData}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${
-                          isActive
-                            ? "bg-emerald-50 text-emerald-700"
-                            : hasData
-                            ? "text-gray-700 hover:bg-gray-50"
-                            : "text-gray-300 cursor-default"
-                        }`}
-                      >
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
-                          style={{
-                            backgroundColor: hasData
-                              ? getKpiColor(unit!.total_kpi)
-                              : "#d1d5db",
-                            ringColor: hasData
-                              ? getKpiColor(unit!.total_kpi)
-                              : "#e5e7eb",
-                          }}
-                        />
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="truncate">{u.short}</div>
-                        </div>
-                        {hasData && (
-                          <span
-                            className={`text-[10px] font-bold tabular-nums ${getKpiTextClass(unit!.total_kpi)}`}
-                          >
-                            {unit!.total_kpi.toFixed(1)}
-                          </span>
-                        )}
-                        {isActive && (
-                          <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
+                <Menu className="h-5 w-5" />
+              </button>
 
-          {/* Right: Controls */}
-          <div className="flex items-center gap-1.5 md:gap-2">
-            {/* View Toggle (hidden on mobile, shown in bottom nav) */}
-            <div className="hidden md:flex items-center bg-gray-100/80 rounded-lg p-0.5">
-              <button
-                onClick={() => setActiveView("kpi")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  activeView === "kpi"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <BarChart3 className="h-3 w-3" />
-                KPI
-              </button>
-              <button
-                onClick={() => setActiveView("trend")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  activeView === "trend"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <TrendingUp className="h-3 w-3" />
-                Tren
-              </button>
-              <button
-                onClick={() => setActiveView("analisis")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  activeView === "analisis"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <Activity className="h-3 w-3" />
-                Analisis
-              </button>
-              <button
-                onClick={() => setActiveView("target")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  activeView === "target"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <Target className="h-3 w-3" />
-                Target
-              </button>
-            </div>
-
-            {/* Period Selector */}
-            <div className="flex items-center gap-1">
-              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-              <Select
-                value={String(selectedSnapshotIndex)}
-                onValueChange={handlePeriodChange}
-              >
-                <SelectTrigger className="w-[120px] md:w-[150px] h-7 text-[11px] bg-white/40 border-gray-200/60">
-                  <SelectValue placeholder="Pilih Periode" />
-                </SelectTrigger>
-                <SelectContent>
-                  {snapshots.map((s, idx) => (
-                    <SelectItem
-                      key={s.dateSort}
-                      value={String(idx)}
-                      className="text-[11px]"
-                    >
-                      {s.date}
-                      {idx === snapshots.length - 1 && " (Terbaru)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Compare Button (Banding) */}
-            {isServerMode && snapshots.length > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    setCompareMode(!compareMode);
-                    if (compareMode) {
-                      setCompareDateSort(null);
-                      setShowCompareCalendar(false);
-                    }
-                  }}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                    compareMode
-                      ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
-                      : "text-gray-500 hover:bg-white/60 border border-transparent"
-                  }`}
+              {isServerMode && (
+                <Badge
+                  variant="outline"
+                  className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 hidden sm:inline-flex px-1.5 py-0"
                 >
-                  <ArrowLeftRight className="h-3 w-3" />
-                  <span className="hidden sm:inline">Banding</span>
-                </button>
-
-                {compareMode && (
-                  <Popover
-                    open={showCompareCalendar}
-                    onOpenChange={setShowCompareCalendar}
-                  >
-                    <PopoverTrigger asChild>
-                      <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-white/60 border border-gray-200/60 bg-white/40 transition-colors">
-                        <CalendarIcon className="h-3 w-3 text-emerald-600" />
-                        <span className="hidden sm:inline max-w-[80px] truncate">
-                          {compareSnapshot?.date || "Pilih tanggal"}
-                        </span>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0"
-                      align="end"
-                      sideOffset={6}
-                    >
-                      <CompareCalendar
-                        availableDates={availableDates.filter(
-                          (d) => d !== currentSnapshot?.dateSort
-                        )}
-                        selectedDate={compareDateSort ?? undefined}
-                        onSelect={(dateSort) => {
-                          setCompareDateSort(dateSort);
-                        }}
-                        onClose={() => setShowCompareCalendar(false)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-            )}
-
-            {/* Upload Button */}
-            <button
-              onClick={() => setShowUpload(!showUpload)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                showUpload
-                  ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
-                  : "text-gray-500 hover:bg-white/60 border border-transparent"
-              }`}
-            >
-              <Upload className="h-3 w-3" />
-              <span className="hidden md:inline">Upload</span>
-            </button>
-
-            {/* Download PDF Button */}
-            <button
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
-              title="Download PDF"
-            >
-              {isGeneratingPdf ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
+                  Online
+                </Badge>
               )}
-            </button>
 
-            {/* Settings */}
-            <button
-              onClick={() => {
-                setShowSettings(true);
-                setPwdMsg("");
-                setCurrentPwd("");
-                setNewPwd("");
-              }}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-white/60 transition-colors"
-              title="Pengaturan"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-              title="Logout"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ═══ UPLOAD PANEL ═══ */}
-      {showUpload && (
-        <div className="bg-white border-b px-3 md:px-5 py-3 animate-fade-up z-40">
-          <div className="max-w-2xl mx-auto">
-            <div
-              className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer ${
-                isDragging
-                  ? "border-emerald-500 bg-emerald-50"
-                  : "border-gray-300 hover:border-emerald-400"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                addFiles(e.dataTransfer.files);
-              }}
-              onClick={() => document.getElementById("file-input")?.click()}
-            >
-              <input
-                id="file-input"
-                type="file"
-                accept=".xlsx"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) addFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-              <Upload
-                className={`mx-auto h-6 w-6 mb-1 ${
-                  isDragging ? "text-emerald-500" : "text-muted-foreground"
-                }`}
-              />
-              <p className="text-xs font-medium">
-                {isDragging
-                  ? "Lepaskan file di sini..."
-                  : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Mendukung upload 7 file sekaligus
-              </p>
-            </div>
-
-            {pendingFiles.length > 0 && (
-              <div className="mt-2 space-y-1">
-                <div className="max-h-24 overflow-y-auto space-y-1">
-                  {pendingFiles.map((f, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                      <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-[9px] text-gray-400">
-                        {(f.size / 1024).toFixed(0)} KB
-                      </span>
-                      <button
-                        onClick={() =>
-                          setPendingFiles((prev) =>
-                            prev.filter((_, i) => i !== idx)
-                          )
-                        }
-                        className="text-gray-400 hover:text-red-500"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[10px] text-muted-foreground">
-                    {pendingFiles.length} file dipilih
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px]"
-                      onClick={() => setPendingFiles([])}
-                    >
-                      Batal
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={handleUpload}
-                      disabled={isUploading}
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
-                          Mengupload...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-3 w-3 mr-1" /> Upload
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {fileStatuses.length > 0 && (
-              <div className="mt-2 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-medium text-gray-600">
-                    Riwayat Upload
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 text-[10px]"
-                    onClick={() => setFileStatuses([])}
-                  >
-                    <X className="h-2.5 w-2.5 mr-0.5" /> Hapus
-                  </Button>
-                </div>
-                <div className="max-h-20 overflow-y-auto space-y-1">
-                  {fileStatuses.map((fs, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span className="flex-1 truncate">{fs.file.name}</span>
-                      {fs.status === "parsing" && (
-                        <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />
-                      )}
-                      {fs.status === "success" && (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                          <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-0 px-1.5 py-0">
-                            Baru
-                          </Badge>
-                        </>
-                      )}
-                      {fs.status === "update" && (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                          <Badge className="text-[9px] bg-blue-100 text-blue-700 border-0 px-1.5 py-0">
-                            Update
-                          </Badge>
-                        </>
-                      )}
-                      {fs.status === "error" && (
-                        <>
-                          <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                          <span className="text-red-500 text-[10px]">
-                            Gagal
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
-      {selectedUnit && activeView === "kpi" && (
-        <div className="sticky top-[53px] z-30 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{
-                  backgroundColor: getKpiColor(selectedUnit.total_kpi),
-                }}
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-bold truncate">
-                  {getUnitLabel(selectedUnit.code)}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {selectedUnit.components.length} komponen KPI
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="text-right">
-                <p
-                  className={`text-xl font-black tabular-nums ${getKpiTextClass(selectedUnit.total_kpi)}`}
+              {/* KPI Unit Dropdown */}
+              <Popover open={showUnitPopover} onOpenChange={setShowUnitPopover}>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium text-gray-700 border border-gray-200/70 bg-white">
+                    <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="max-w-[100px] sm:max-w-[140px] md:max-w-[180px] truncate">
+                      {selectedUnit
+                        ? UNIT_LIST.find((u) => u.code === selectedUnit.code)
+                            ?.short || selectedUnit.name
+                        : "Pilih Unit"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[260px] p-2"
+                  align="start"
+                  sideOffset={6}
                 >
-                  {selectedUnit.total_kpi.toFixed(2)}
-                </p>
+                  <div className="space-y-0.5">
+                    {UNIT_LIST.map((u) => {
+                      const unit = latestUnits.find((lu) => lu.code === u.code);
+                      const hasData = !!unit;
+                      const isActive = selectedUnitCode === u.code;
+                      return (
+                        <button
+                          key={u.code}
+                          onClick={() => {
+                            if (hasData) {
+                              setSelectedUnitCode(u.code);
+                              setActiveView("kpi");
+                              setShowUnitPopover(false);
+                            }
+                          }}
+                          disabled={!hasData}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700"
+                              : hasData
+                              ? "text-gray-700 hover:bg-gray-50"
+                              : "text-gray-300 cursor-default"
+                          }`}
+                        >
+                          <div
+                            className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
+                            style={{
+                              backgroundColor: hasData
+                                ? getKpiColor(unit!.total_kpi)
+                                : "#d1d5db",
+                              ringColor: hasData
+                                ? getKpiColor(unit!.total_kpi)
+                                : "#e5e7eb",
+                            }}
+                          />
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="truncate">{u.short}</div>
+                          </div>
+                          {hasData && (
+                            <span
+                              className={`text-[10px] font-bold tabular-nums ${getKpiTextClass(unit!.total_kpi)}`}
+                            >
+                              {unit!.total_kpi.toFixed(1)}
+                            </span>
+                          )}
+                          {isActive && (
+                            <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Right: Period, Compare, PDF */}
+            <div className="flex items-center gap-1.5 md:gap-2">
+              {/* Period Selector */}
+              <div className="flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+                <Select
+                  value={String(selectedSnapshotIndex)}
+                  onValueChange={handlePeriodChange}
+                >
+                  <SelectTrigger className="w-[100px] sm:w-[130px] md:w-[160px] h-7 text-[11px] bg-white border-gray-200/70">
+                    <SelectValue placeholder="Pilih Periode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {snapshots.map((s, idx) => (
+                      <SelectItem
+                        key={s.dateSort}
+                        value={String(idx)}
+                        className="text-[11px]"
+                      >
+                        {s.date}
+                        {idx === snapshots.length - 1 && " (Terbaru)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              {effectivePrevUnit && (
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    vs {compareLabel || prevSnapshot?.date || "kemarin"}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] font-bold px-1.5 py-0 border-0 ${
-                      kpiDelta > 0
-                        ? "bg-emerald-100 text-emerald-700"
-                        : kpiDelta < 0
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-500"
+
+              {/* Compare Button */}
+              {isServerMode && snapshots.length > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setCompareMode(!compareMode);
+                      if (compareMode) {
+                        setCompareDateSort(null);
+                        setShowCompareCalendar(false);
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                      compareMode
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                        : "text-gray-500 hover:bg-gray-50 border border-transparent"
                     }`}
                   >
-                    {kpiDelta > 0 ? "+" : ""}
-                    {kpiDelta.toFixed(2)}
-                  </Badge>
+                    <ArrowLeftRight className="h-3 w-3" />
+                    <span className="hidden sm:inline">Banding</span>
+                  </button>
+
+                  {compareMode && (
+                    <Popover
+                      open={showCompareCalendar}
+                      onOpenChange={setShowCompareCalendar}
+                    >
+                      <PopoverTrigger asChild>
+                        <button className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200/70 bg-white transition-colors">
+                          <CalendarIcon className="h-3 w-3 text-emerald-600" />
+                          <span className="hidden sm:inline max-w-[80px] truncate">
+                            {compareSnapshot?.date || "Pilih tanggal"}
+                          </span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto p-0"
+                        align="end"
+                        sideOffset={6}
+                      >
+                        <CompareCalendar
+                          availableDates={availableDates.filter(
+                            (d) => d !== currentSnapshot?.dateSort
+                          )}
+                          selectedDate={compareDateSort ?? undefined}
+                          onSelect={(dateSort) => {
+                            setCompareDateSort(dateSort);
+                          }}
+                          onClose={() => setShowCompareCalendar(false)}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 </div>
               )}
-              {isServerMode && currentSnapshot && (
-                <button
-                  onClick={() => {
-                    setDeleteDate(currentSnapshot.dateSort);
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                  title="Hapus periode ini"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
+
+              {/* Download PDF */}
               <button
                 onClick={handleDownloadPdf}
                 disabled={isGeneratingPdf}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50 md:hidden"
+                className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
                 title="Download PDF"
               >
                 {isGeneratingPdf ? (
@@ -1026,127 +714,284 @@ export default function Home() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* ═══ MAIN CONTENT ═══ */}
-      <main className="flex-1 p-3 md:p-5 pb-24 md:pb-5">
-        <div className="max-w-7xl mx-auto animate-fade-up">
-          {activeView === "trend" ? (
-            <TrendCharts
-              snapshots={snapshots}
-              compareMode={compareMode}
-              compareDateSort={compareDateSort}
-              selectedIndex={selectedSnapshotIndex}
-            />
-          ) : activeView === "analisis" ? (
-            <KpiAnalysis
-              units={latestUnits}
-              date={currentSnapshot?.date || ""}
-            />
-          ) : activeView === "target" ? (
-            <TargetAnalysis
-              units={latestUnits}
-              selectedUnitCode={selectedUnitCode}
-              onUnitSelect={(code) => setSelectedUnitCode(code)}
-            />
-          ) : selectedUnit ? (
-            <UnitDetailTable
-              unit={selectedUnit}
-              unitLabel={getUnitLabel(selectedUnit.code)}
-              prevUnit={effectivePrevUnit}
-              compareLabel={compareLabel}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-              <Building2 className="h-12 w-12 mb-3 opacity-30" />
-              <p className="text-sm font-medium">Pilih outlet dari dropdown KPI</p>
-              <p className="text-xs mt-1 text-gray-300">
-                Klik dropdown unit di header untuk melihat detail KPI
-              </p>
+        {/* ═══ UPLOAD PANEL ═══ */}
+        {showUpload && (
+          <div className="bg-white border-b px-3 md:px-5 py-3 animate-fade-up z-30">
+            <div className="max-w-2xl mx-auto">
+              <div
+                className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer ${
+                  isDragging
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-gray-300 hover:border-emerald-400"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  addFiles(e.dataTransfer.files);
+                }}
+                onClick={() => document.getElementById("file-input")?.click()}
+              >
+                <input
+                  id="file-input"
+                  type="file"
+                  accept=".xlsx"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) addFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Upload
+                  className={`mx-auto h-6 w-6 mb-1 ${
+                    isDragging ? "text-emerald-500" : "text-muted-foreground"
+                  }`}
+                />
+                <p className="text-xs font-medium">
+                  {isDragging
+                    ? "Lepaskan file di sini..."
+                    : "Drag & drop file KPI (.xlsx) atau klik untuk memilih"}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Mendukung upload 7 file sekaligus
+                </p>
+              </div>
+
+              {pendingFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="max-h-24 overflow-y-auto space-y-1">
+                    {pendingFiles.map((f, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        <span className="flex-1 truncate">{f.name}</span>
+                        <span className="text-[9px] text-gray-400">
+                          {(f.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          onClick={() =>
+                            setPendingFiles((prev) =>
+                              prev.filter((_, i) => i !== idx)
+                            )
+                          }
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      {pendingFiles.length} file dipilih
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={() => setPendingFiles([])}
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={handleUpload}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />{" "}
+                            Mengupload...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3 w-3 mr-1" /> Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {fileStatuses.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-medium text-gray-600">
+                      Riwayat Upload
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 text-[10px]"
+                      onClick={() => setFileStatuses([])}
+                    >
+                      <X className="h-2.5 w-2.5 mr-0.5" /> Hapus
+                    </Button>
+                  </div>
+                  <div className="max-h-20 overflow-y-auto space-y-1">
+                    {fileStatuses.map((fs, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 text-[11px]"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span className="flex-1 truncate">{fs.file.name}</span>
+                        {fs.status === "parsing" && (
+                          <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin shrink-0" />
+                        )}
+                        {fs.status === "success" && (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-0 px-1.5 py-0">
+                              Baru
+                            </Badge>
+                          </>
+                        )}
+                        {fs.status === "update" && (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                            <Badge className="text-[9px] bg-blue-100 text-blue-700 border-0 px-1.5 py-0">
+                              Update
+                            </Badge>
+                          </>
+                        )}
+                        {fs.status === "error" && (
+                          <>
+                            <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                            <span className="text-red-500 text-[10px]">
+                              Gagal
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </main>
+          </div>
+        )}
 
-      {/* ═══ MOBILE BOTTOM NAV ═══ */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t safe-area-inset-bottom">
-        <div className="flex items-center justify-around py-1.5 px-2">
-          <button
-            onClick={() => setActiveView("kpi")}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
-              activeView === "kpi"
-                ? "text-emerald-700"
-                : "text-gray-400"
-            }`}
-          >
-            <BarChart3 className="h-5 w-5" />
-            <span className="text-[10px] font-medium">KPI</span>
-          </button>
-          <button
-            onClick={() => setActiveView("trend")}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
-              activeView === "trend"
-                ? "text-emerald-700"
-                : "text-gray-400"
-            }`}
-          >
-            <TrendingUp className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Tren</span>
-          </button>
-          <button
-            onClick={() => setActiveView("analisis")}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
-              activeView === "analisis"
-                ? "text-emerald-700"
-                : "text-gray-400"
-            }`}
-          >
-            <Activity className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Analisis</span>
-          </button>
-          <button
-            onClick={() => setActiveView("target")}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
-              activeView === "target"
-                ? "text-emerald-700"
-                : "text-gray-400"
-            }`}
-          >
-            <Target className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Target</span>
-          </button>
+        {/* ═══ STICKY KPI SUMMARY BAR ═══ */}
+        {selectedUnit && activeView === "kpi" && (
+          <div className="sticky top-[49px] z-20 bg-white/80 backdrop-blur-md border-b px-3 md:px-5 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: getKpiColor(selectedUnit.total_kpi),
+                  }}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold truncate">
+                    {getUnitLabel(selectedUnit.code)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {selectedUnit.components.length} komponen KPI
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="text-right">
+                  <p
+                    className={`text-xl font-black tabular-nums ${getKpiTextClass(selectedUnit.total_kpi)}`}
+                  >
+                    {selectedUnit.total_kpi.toFixed(2)}
+                  </p>
+                </div>
+                {effectivePrevUnit && (
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      vs {compareLabel || prevSnapshot?.date || "kemarin"}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-bold px-1.5 py-0 border-0 ${
+                        kpiDelta > 0
+                          ? "bg-emerald-100 text-emerald-700"
+                          : kpiDelta < 0
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {kpiDelta > 0 ? "+" : ""}
+                      {kpiDelta.toFixed(2)}
+                    </Badge>
+                  </div>
+                )}
+                {isServerMode && currentSnapshot && (
+                  <button
+                    onClick={() => {
+                      setDeleteDate(currentSnapshot.dateSort);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    title="Hapus periode ini"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Floating Upload Button */}
-          <button
-            onClick={() => setShowUpload(!showUpload)}
-            className={`relative -mt-5 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
-              showUpload
-                ? "bg-red-500 text-white scale-95"
-                : "bg-emerald-600 text-white hover:bg-emerald-700 hover:scale-105"
-            }`}
-          >
-            {showUpload ? (
-              <X className="h-5 w-5" />
+        {/* ═══ MAIN CONTENT ═══ */}
+        <main className="flex-1 p-3 md:p-5">
+          <div className="animate-fade-up">
+            {activeView === "trend" ? (
+              <TrendCharts
+                snapshots={snapshots}
+                compareMode={compareMode}
+                compareDateSort={compareDateSort}
+                selectedIndex={selectedSnapshotIndex}
+              />
+            ) : activeView === "analisis" ? (
+              <KpiAnalysis
+                units={latestUnits}
+                date={currentSnapshot?.date || ""}
+              />
+            ) : activeView === "target" ? (
+              <TargetAnalysis
+                units={latestUnits}
+                selectedUnitCode={selectedUnitCode}
+                onUnitSelect={(code) => setSelectedUnitCode(code)}
+              />
+            ) : selectedUnit ? (
+              <UnitDetailTable
+                unit={selectedUnit}
+                unitLabel={getUnitLabel(selectedUnit.code)}
+                prevUnit={effectivePrevUnit}
+                compareLabel={compareLabel}
+              />
             ) : (
-              <Upload className="h-5 w-5" />
+              <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+                <Building2 className="h-12 w-12 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Pilih outlet dari dropdown unit</p>
+                <p className="text-xs mt-1 text-gray-300">
+                  Gunakan dropdown di atas untuk memilih unit KPI
+                </p>
+              </div>
             )}
-          </button>
-
-          <button
-            onClick={() => {
-              setShowSettings(true);
-              setPwdMsg("");
-              setCurrentPwd("");
-              setNewPwd("");
-            }}
-            className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <Settings className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Setting</span>
-          </button>
-        </div>
-      </nav>
+          </div>
+        </main>
+      </div>
 
       {/* ═══ SETTINGS DIALOG ═══ */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
