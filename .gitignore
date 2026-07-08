@@ -33,8 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
-.vercel
+# vercel (keep project.json tracked so deploy doesn't switch project)
+.vercel/*
+!.vercel/project.json
 
 # data directory (contains business KPI data & auth)
 /data/
