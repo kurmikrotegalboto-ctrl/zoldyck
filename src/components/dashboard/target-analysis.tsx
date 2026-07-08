@@ -5,12 +5,14 @@ import {
   Target, Clock, ChevronRight, ChevronDown,
   Medal, Flame, ShieldCheck, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Check, Infinity, Zap,
-  ArrowUpDown, ArrowUp, ArrowDown, Filter, Download
+  ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, FileText
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CAPPING_MAP } from "@/lib/kpi-types";
 import type { KpiUnit } from "@/lib/kpi-types";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -463,6 +465,130 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
     XLSX.writeFile(wb, `Gap Analysis ${label} ${dateStr}.xlsx`);
   };
 
+  // ─── Download PDF ────────────────────────────────────────────────────
+  const handleDownloadPDF = () => {
+    const label = analysis.label;
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    const tglIndo = `${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    // Noto Sans SC supports CJK, use it for Indonesian text too
+    doc.setFont("helvetica", "normal");
+
+    // Title bar
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(0, 0, 297, 22, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Gap Analysis KPI - ${label}`, 10, 10);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Tanggal: ${tglIndo}  |  Sisa Hari Kerja: ${workDays} hari  |  Skor KPI: ${analysis.totalKpi.toFixed(2)}`, 10, 17);
+
+    // Summary boxes
+    let y = 28;
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Chase Exceed: ${chaseRows.length}`, 10, y);
+    doc.setTextColor(220, 38, 38);
+    doc.text(String(chaseRows.length), 10 + doc.getTextWidth(`Chase Exceed: `), y);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Chase Super Exceed: ${superChaseRows.length}`, 70, y);
+    doc.setTextColor(217, 119, 6);
+    doc.text(String(superChaseRows.length), 70 + doc.getTextWidth(`Chase Super Exceed: `), y);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Sudah Capai: ${achievedRows.length}`, 150, y);
+    doc.setTextColor(5, 150, 105);
+    doc.text(String(achievedRows.length), 150 + doc.getTextWidth(`Sudah Capai: `), y);
+
+    // Table data
+    const statusLabel = (s: string) => s === "chase" ? "Chase Exceed" : s === "super_chase" ? "Chase Super" : "Capai";
+    const fmtGap = (r: StrategyRow) => {
+      if (r.status === "achieved") return "-";
+      const abs = Math.abs(r.gapInSatuan);
+      if (r.satuan === "Rp") return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
+      if (r.satuan === "Jumlah") return Math.round(abs).toLocaleString("id-ID");
+      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g`;
+      if (r.satuan === "%") return `${abs.toFixed(2).replace(".",",")}%`;
+      return String(abs.toFixed(2));
+    };
+    const fmtDly = (r: StrategyRow) => {
+      if (r.status === "achieved") return "Capai";
+      const abs = Math.abs(r.dailyTarget);
+      const arr = r.isInverse ? "\u2193" : "\u2191";
+      if (r.satuan === "Rp") return `${arr} Rp ${Math.round(abs).toLocaleString("id-ID")}/hr`;
+      if (r.satuan === "Jumlah") return `${arr} ${Math.round(abs).toLocaleString("id-ID")}/hr`;
+      if (r.satuan === "Gramasi") return `${arr} ${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g/hr`;
+      if (r.satuan === "%") return `${arr} ${abs.toFixed(4).replace(".",",")}%/hr`;
+      return `${arr} ${abs.toFixed(2)}/hr`;
+    };
+
+    const tableBody = rawRows.map((r, i) => {
+      const sim = simulationData.find(s => s.name === r.name);
+      return [
+        i + 1,
+        r.name,
+        r.satuan,
+        r.bobot,
+        r.currentAch.toFixed(1) + "%",
+        r.targetAch + "%",
+        r.targetLabel,
+        statusLabel(r.status),
+        fmtGap(r),
+        fmtDly(r),
+        sim ? "+" + sim.gain.toFixed(2) : "0.00",
+        sim ? sim.cumulative.toFixed(1) : "-",
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y + 4,
+      head: [["No", "Komponen", "Satuan", "Bobot", "ACH", "Target", "Label", "Status", "Gap (Satuan)", "Target / Hari", "Poin Gain", "KPI Kum." ]],
+      body: tableBody,
+      theme: "grid",
+      styles: { fontSize: 7, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.3 },
+      headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 7, fontStyle: "bold", halign: "center" },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8 },
+        1: { cellWidth: 45 },
+        2: { halign: "center", cellWidth: 14 },
+        3: { halign: "center", cellWidth: 10 },
+        4: { halign: "right", cellWidth: 16 },
+        5: { halign: "center", cellWidth: 14 },
+        6: { halign: "center", cellWidth: 22 },
+        7: { halign: "center", cellWidth: 22 },
+        8: { halign: "right", cellWidth: 38 },
+        9: { halign: "right", cellWidth: 42 },
+        10: { halign: "right", cellWidth: 18 },
+        11: { halign: "right", cellWidth: 18 },
+      },
+      didParseCell: (data) => {
+        // Color-code status column
+        if (data.section === "body" && data.column.index === 7) {
+          const val = String(data.cell.raw);
+          if (val === "Capai") data.cell.styles.textColor = [5, 150, 105];
+          else if (val === "Chase Super") data.cell.styles.textColor = [217, 119, 6];
+          else if (val === "Chase Exceed") data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable?.finalY || 200;
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    doc.text(`Dicetak pada: ${tglIndo}  |  Gap Analysis KPI ${label}`, 10, finalY + 6);
+    doc.text(`Halaman 1`, 287 - doc.getTextWidth("Halaman 1"), finalY + 6, { align: "right" });
+
+    doc.save(`Gap Analysis ${label} ${dateStr}.pdf`);
+  };
+
   return (
     <div className="space-y-4 animate-fade-up">
       {/* ═══ HERO: Score vs Target ═══ */}
@@ -523,7 +649,14 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all border border-white/20"
               >
                 <Download className="h-3.5 w-3.5" />
-                Download Excel
+                Excel
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all border border-white/20"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                PDF
               </button>
               <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
                 <Clock className="h-3 w-3" />
