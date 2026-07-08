@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import {
   Target, Clock, ChevronRight, ChevronDown,
   Medal, Flame, ShieldCheck, AlertTriangle,
-  ArrowUpRight, ArrowDownRight, Check, Infinity, Zap
+  ArrowUpRight, ArrowDownRight, Check, Infinity, Zap,
+  ArrowUpDown, ArrowUp, ArrowDown, Filter
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CAPPING_MAP } from "@/lib/kpi-types";
@@ -287,12 +288,57 @@ function achTextColor(ach: number): string {
 
 // ─── UNIT DETAIL PANEL ───────────────────────────────────────────────────
 
-function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workDays: number }) {
-  const rows = useMemo(() => buildStrategyRows(analysis.unit, workDays), [analysis.unit, workDays]);
+type SortMode = "gap_desc" | "ach_asc" | "ach_desc" | "bobot_desc" | "name_asc";
 
-  const chaseRows = rows.filter(r => r.status === "chase");
-  const superChaseRows = rows.filter(r => r.status === "super_chase");
-  const achievedRows = rows.filter(r => r.status === "achieved");
+const SORT_OPTIONS: { value: SortMode; label: string; icon: typeof ArrowUpDown; desc: string }[] = [
+  { value: "gap_desc",  label: "Gap Terbesar",  icon: ArrowUpDown, desc: "Gap terbesar ke terkecil" },
+  { value: "ach_asc",   label: "ACH Terendah",   icon: ArrowUp,     desc: "ACH terendah ke tertinggi" },
+  { value: "ach_desc",  label: "ACH Tertinggi",  icon: ArrowDown,   desc: "ACH tertinggi ke terendah" },
+  { value: "bobot_desc", label: "Bobot Terbesar", icon: ArrowUpDown, desc: "Bobot terbesar ke terkecil" },
+  { value: "name_asc",  label: "Nama A-Z",       icon: Filter,     desc: "Urutkan nama komponen" },
+];
+
+function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workDays: number }) {
+  const [sortMode, setSortMode] = useState<SortMode>("gap_desc");
+  const [statusFilter, setStatusFilter] = useState<"all" | "chase" | "super_chase" | "achieved">("all");
+
+  const rawRows = useMemo(() => buildStrategyRows(analysis.unit, workDays), [analysis.unit, workDays]);
+
+  const rows = useMemo(() => {
+    let filtered = rawRows;
+    if (statusFilter !== "all") {
+      filtered = rawRows.filter(r => r.status === statusFilter);
+    }
+    const sorted = [...filtered];
+    switch (sortMode) {
+      case "ach_asc":
+        sorted.sort((a, b) => a.currentAch - b.currentAch);
+        break;
+      case "ach_desc":
+        sorted.sort((a, b) => b.currentAch - a.currentAch);
+        break;
+      case "bobot_desc":
+        sorted.sort((a, b) => b.bobot - a.bobot || b.gapInSatuan - a.gapInSatuan);
+        break;
+      case "name_asc":
+        sorted.sort((a, b) => a.name.localeCompare(b.name, "id"));
+        break;
+      case "gap_desc":
+      default:
+        // Original sort: chase → super_chase → achieved, then by gap desc
+        const order: Record<string, number> = { chase: 0, super_chase: 1, achieved: 2 };
+        sorted.sort((a, b) => {
+          if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+          return b.gapInSatuan - a.gapInSatuan;
+        });
+        break;
+    }
+    return sorted;
+  }, [rawRows, sortMode, statusFilter]);
+
+  const chaseRows = rawRows.filter(r => r.status === "chase");
+  const superChaseRows = rawRows.filter(r => r.status === "super_chase");
+  const achievedRows = rawRows.filter(r => r.status === "achieved");
 
   // Running total poin simulation: shows cumulative KPI if each component is optimized in order
   const simulationData = useMemo(() => {
@@ -300,7 +346,8 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
     const currentTotal = analysis.totalKpi;
     let running = currentTotal;
     const steps: { name: string; gain: number; cumulative: number; milestone?: string }[] = [];
-    for (const r of rows) {
+    // Always use rawRows (gap-desc order) for simulation to show optimal path
+    for (const r of rawRows) {
       if (r.status === "achieved") {
         steps.push({ name: r.name, gain: 0, cumulative: running });
         continue;
@@ -310,11 +357,9 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       let gain: number;
       const cap = CAPPING_MAP[r.name];
       if (cap === "Unlimited") {
-        // Unlimited: score can go up to bobot * (targetAch/100)
         const targetScore = comp.bobot * (r.targetAch / 100);
         gain = Math.max(0, targetScore - comp.kpi_score);
       } else {
-        // Capped: max possible score is bobot * 1.10
         const maxScore = comp.bobot * 1.10;
         gain = Math.max(0, maxScore - comp.kpi_score);
       }
@@ -323,7 +368,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       steps.push({ name: r.name, gain: Math.round(gain * 100) / 100, cumulative: Math.round(running * 100) / 100, milestone });
     }
     return steps;
-  }, [rows, analysis.unit, analysis.totalKpi]);
+  }, [rawRows, analysis.unit, analysis.totalKpi]);
+
+  // Pre-compute urgent set (top 3 chase by gap) for row highlighting
+  const urgentChaseNames = useMemo(
+    () => new Set(rawRows.filter(r => r.status === "chase").slice(0, 3).map(r => r.name)),
+    [rawRows]
+  );
 
   return (
     <div className="space-y-4 animate-fade-up">
@@ -385,8 +436,61 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-1">
-            Gap dalam satuan asli &divide; sisa hari efektif = target harian &middot; Diurutkan dari gap terbesar
+            Gap dalam satuan asli &divide; sisa hari efektif = target harian
           </p>
+        </div>
+
+        {/* Sort & Filter Bar */}
+        <div className="px-4 py-2.5 bg-slate-50/80 border-b border-gray-100 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 mr-1">
+            <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-semibold text-gray-500">Urutkan:</span>
+          </div>
+          {SORT_OPTIONS.map(opt => {
+            const Icon = opt.icon;
+            const isActive = sortMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setSortMode(opt.value)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all border ${
+                  isActive
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:text-emerald-700"
+                }`}
+                title={opt.desc}
+              >
+                <Icon className="h-3 w-3" />
+                {opt.label}
+              </button>
+            );
+          })}
+          <div className="h-4 w-px bg-gray-200 mx-1 hidden sm:block" />
+          <div className="flex items-center gap-1.5">
+            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-[10px] font-semibold text-gray-500">Filter:</span>
+          </div>
+          {(["all", "chase", "super_chase", "achieved"] as const).map(f => {
+            const label = f === "all" ? "Semua" : f === "chase" ? "Chase" : f === "super_chase" ? "Super Chase" : "Capai";
+            const count = f === "all" ? rawRows.length : f === "chase" ? chaseRows.length : f === "super_chase" ? superChaseRows.length : achievedRows.length;
+            const isActive = statusFilter === f;
+            const dotColor = f === "all" ? "bg-gray-400" : f === "chase" ? "bg-red-500" : f === "super_chase" ? "bg-amber-500" : "bg-emerald-500";
+            return (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-all border ${
+                  isActive
+                    ? "bg-slate-700 text-white border-slate-700 shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-slate-400 hover:text-slate-700"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                {label}
+                <span className={`font-bold tabular-nums ${isActive ? "text-white/70" : "text-gray-400"}`}>({count})</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Summary pills */}
@@ -423,7 +527,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                 <th className="text-left px-3 py-2 font-semibold text-gray-500">Komponen</th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Satuan</th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-12">Bobot</th>
-                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-24">ACH</th>
+                <th className="text-center px-2 py-2 font-semibold text-gray-500 w-24">
+                  <button onClick={() => setSortMode(sortMode === "ach_asc" ? "ach_desc" : "ach_asc")} className="inline-flex items-center gap-0.5 hover:text-emerald-600 transition-colors">
+                    ACH
+                    {sortMode === "ach_asc" && <ArrowUp className="h-2.5 w-2.5 text-emerald-600" />}
+                    {sortMode === "ach_desc" && <ArrowDown className="h-2.5 w-2.5 text-emerald-600" />}
+                  </button>
+                </th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-20">Target</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-36">Gap (Satuan)</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-44">Target / Hari</th>
@@ -433,7 +543,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
             <tbody>
               {rows.map((r, idx) => {
                 const simStep = simulationData.find(s => s.name === r.name);
-                const isUrgent = r.status === "chase" && idx < 3;
+                const isUrgent = urgentChaseNames.has(r.name);
                 const rowBg = r.status === "achieved"
                   ? "bg-emerald-50/40"
                   : r.status === "super_chase"
