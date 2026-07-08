@@ -474,32 +474,20 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
     const tglIndo = `${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
 
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    doc.setFont("helvetica", "normal");
 
-    // ── Title bar ──
+    // ── Compact title bar ──
     doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, 297, 22, "F");
+    doc.rect(0, 0, 297, 15, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text(`Gap Analysis KPI - ${label}`, 10, 10);
-    doc.setFontSize(8);
+    doc.text(`Gap Analysis KPI - ${label}`, 6, 7);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.text(`Tanggal: ${tglIndo}  |  Sisa Hari Kerja: ${workDays} hari  |  Skor KPI: ${analysis.totalKpi.toFixed(2)}`, 10, 17);
+    doc.text(`Tanggal: ${tglIndo}  |  Sisa Hari Kerja: ${workDays} hari  |  Skor KPI: ${analysis.totalKpi.toFixed(2)}  |  Chase: ${chaseRows.length}  |  Super Chase: ${superChaseRows.length}  |  Capai: ${achievedRows.length}`, 6, 12);
 
-    // ── Summary line ──
-    const sumY = 28;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(220, 38, 38);
-    doc.text(`Chase Exceed: ${chaseRows.length}`, 10, sumY);
-    doc.setTextColor(217, 119, 6);
-    doc.text(`Chase Super Exceed: ${superChaseRows.length}`, 80, sumY);
-    doc.setTextColor(5, 150, 105);
-    doc.text(`Sudah Capai: ${achievedRows.length}`, 170, sumY);
-
-    // ── Helpers: NO unicode arrows, use ASCII-safe text ──
-    const statusLabel = (s: string) => s === "chase" ? "Chase Exceed" : s === "super_chase" ? "Chase Super" : "Capai";
+    // ── Helpers ──
+    const statusLabel = (s: string) => s === "chase" ? "Chase" : s === "super_chase" ? "S.Chase" : "Capai";
     const fmtNum = (n: number) => Math.round(n).toLocaleString("id-ID");
     const fmtGap = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
@@ -511,17 +499,16 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return abs.toFixed(2);
     };
     const fmtDly = (r: StrategyRow) => {
-      if (r.status === "achieved") return "Sudah Capai";
+      if (r.status === "achieved") return "-";
       const abs = Math.abs(r.dailyTarget);
-      const dir = r.isInverse ? "TURUN" : "NAIK";
-      if (r.satuan === "Rp") return `${dir} Rp ${fmtNum(abs)}/hari`;
-      if (r.satuan === "Jumlah") return `${dir} ${fmtNum(abs)}/hari`;
-      if (r.satuan === "Gramasi") return `${dir} ${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g/hari`;
-      if (r.satuan === "%") return `${dir} ${abs.toFixed(4).replace(".",",")}%/hari`;
-      return `${dir} ${abs.toFixed(2)}/hari`;
+      if (r.satuan === "Rp") return `Rp ${fmtNum(abs)}/hari`;
+      if (r.satuan === "Jumlah") return `${fmtNum(abs)}/hari`;
+      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} g/hari`;
+      if (r.satuan === "%") return `${abs.toFixed(4).replace(".",",")}%/hari`;
+      return `${abs.toFixed(2)}/hari`;
     };
 
-    // ── Build table body ──
+    // ── Build table body (10 columns, compact) ──
     const tableBody = rawRows.map((r, i) => {
       const sim = simulationData.find(s => s.name === r.name);
       return [
@@ -531,86 +518,72 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         r.bobot,
         r.currentAch.toFixed(1) + "%",
         r.targetAch + "%",
-        r.targetLabel,
         statusLabel(r.status),
         fmtGap(r),
         fmtDly(r),
-        sim ? "+" + sim.gain.toFixed(2) : "0.00",
         sim ? sim.cumulative.toFixed(1) : "-",
       ];
     });
 
-    const head = [["No", "Komponen", "Satuan", "Bobot", "ACH", "Target", "Label", "Status", "Gap (Satuan)", "Target / Hari", "Poin", "KPI Kum."]];
+    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kum."]];
 
     autoTable(doc, {
-      startY: sumY + 4,
+      startY: 17,
       head,
       body: tableBody,
       theme: "grid",
-      repeatHeader: true,
       styles: {
-        fontSize: 6.5,
-        cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 },
-        lineColor: [210, 210, 210],
-        lineWidth: 0.2,
+        fontSize: 5.5,
+        cellPadding: { top: 1, bottom: 1, left: 1.5, right: 1.5 },
+        lineColor: [200, 200, 200],
+        lineWidth: 0.15,
         overflow: "linebreak",
       },
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: [255, 255, 255],
-        fontSize: 6.5,
+        fontSize: 5.5,
         fontStyle: "bold",
         halign: "center",
-        cellPadding: { top: 2.5, bottom: 2.5, left: 2, right: 2 },
+        cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
       },
       columnStyles: {
-        0:  { halign: "center", cellWidth: 7 },    // No
-        1:  { cellWidth: 48 },                      // Komponen
-        2:  { halign: "center", cellWidth: 12 },    // Satuan
-        3:  { halign: "center", cellWidth: 12 },    // Bobot
-        4:  { halign: "right",  cellWidth: 14 },    // ACH
-        5:  { halign: "center", cellWidth: 13 },    // Target
-        6:  { halign: "center", cellWidth: 20 },    // Label
-        7:  { halign: "center", cellWidth: 20 },    // Status
-        8:  { halign: "right",  cellWidth: 40 },    // Gap
-        9:  { halign: "right",  cellWidth: 44 },    // Daily
-        10: { halign: "right",  cellWidth: 16 },    // Poin
-        11: { halign: "right",  cellWidth: 16 },    // Kum
+        0:  { halign: "center", cellWidth: 6 },    // No
+        1:  { cellWidth: 46 },                      // Komponen
+        2:  { halign: "center", cellWidth: 9 },     // Satuan
+        3:  { halign: "center", cellWidth: 8 },     // Bobot
+        4:  { halign: "right",  cellWidth: 13 },    // ACH
+        5:  { halign: "center", cellWidth: 12 },    // Target
+        6:  { halign: "center", cellWidth: 14 },    // Status
+        7:  { halign: "right",  cellWidth: 48 },    // Gap
+        8:  { halign: "right",  cellWidth: 48 },    // Daily
+        9:  { halign: "right",  cellWidth: 14 },    // Kum
       },
       didParseCell: (data) => {
         if (data.section !== "body") return;
-        // Status column color
-        if (data.column.index === 7) {
+        if (data.column.index === 6) {
           const val = String(data.cell.raw);
           if (val === "Capai") data.cell.styles.textColor = [5, 150, 105];
-          else if (val === "Chase Super") data.cell.styles.textColor = [217, 119, 6];
-          else if (val === "Chase Exceed") data.cell.styles.textColor = [220, 38, 38];
+          else if (val === "S.Chase") data.cell.styles.textColor = [217, 119, 6];
+          else if (val === "Chase") data.cell.styles.textColor = [220, 38, 38];
         }
-        // Row background by status
+        // Row background
         if (data.column.index === 0) {
           const row = data.table.body[data.row.index];
           if (!row) return;
-          const statusVal = String(row.cells[7]?.raw || "");
-          if (statusVal === "Capai") {
-            data.cell.styles.fillColor = [240, 253, 244]; // green-50
-          } else if (statusVal === "Chase Super") {
-            data.cell.styles.fillColor = [255, 251, 235]; // amber-50
-          }
+          const sv = String(row.cells[6]?.raw || "");
+          if (sv === "Capai") data.cell.styles.fillColor = [240, 253, 244];
+          else if (sv === "S.Chase") data.cell.styles.fillColor = [255, 251, 235];
         }
       },
-      margin: { left: 8, right: 8 },
+      margin: { left: 5, right: 5 },
     });
 
-    // ── Footer on every page ──
-    const pageCount = doc.getNumberOfPages();
-    for (let p = 1; p <= pageCount; p++) {
-      doc.setPage(p);
-      const pageH = doc.internal.pageSize.getHeight();
-      doc.setFontSize(6.5);
-      doc.setTextColor(160, 160, 160);
-      doc.text(`Dicetak: ${tglIndo}  |  Gap Analysis KPI ${label}`, 8, pageH - 5);
-      doc.text(`Halaman ${p} / ${pageCount}`, 289, pageH - 5, { align: "right" });
-    }
+    // ── Footer ──
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(5.5);
+    doc.setTextColor(160, 160, 160);
+    doc.text(`Dicetak: ${tglIndo}  |  Gap Analysis KPI ${label}`, 5, pageH - 3);
 
     doc.save(`Gap Analysis ${label} ${dateStr}.pdf`);
   };
