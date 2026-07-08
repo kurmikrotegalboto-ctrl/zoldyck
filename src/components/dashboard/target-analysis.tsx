@@ -436,10 +436,8 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return `${abs.toFixed(2)}/hari`;
     };
 
-    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kumulatif"];
-    const dataRows = rawRows.map((r, i) => {
-      const sim = simulationData.find(s => s.name === r.name);
-      return [
+    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari"];
+    const dataRows = rawRows.map((r, i) => [
         i + 1,
         r.name,
         r.satuan,
@@ -449,9 +447,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         statusLabel(r.status),
         gapStr(r),
         dailyStr(r),
-        sim ? sim.cumulative : analysis.totalKpi,
-      ];
-    });
+    ]);
 
     const ws = XLSX.utils.aoa_to_sheet([
       // Title rows
@@ -475,13 +471,12 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       { wch: 20 },  // Status
       { wch: 30 },  // Gap
       { wch: 35 },  // Daily
-      { wch: 14 },  // Kum
     ];
 
     // Merge title
     ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -539,10 +534,8 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return `${abs.toFixed(2)}/hari`;
     };
 
-    // ── Build table body (10 columns, compact) ──
-    const tableBody = rawRows.map((r, i) => {
-      const sim = simulationData.find(s => s.name === r.name);
-      return [
+    // ── Build table body (9 columns, compact) ──
+    const tableBody = rawRows.map((r, i) => [
         i + 1,
         r.name,
         r.satuan,
@@ -552,11 +545,9 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         statusLabel(r.status),
         fmtGap(r),
         fmtDly(r),
-        sim ? sim.cumulative.toFixed(1) : "-",
-      ];
-    });
+    ]);
 
-    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari", "KPI Kum."]];
+    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target (RKAP)", "Status", "Gap (Satuan)", "Target / Hari"]];
 
     autoTable(doc, {
       startY: 17,
@@ -564,8 +555,8 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       body: tableBody,
       theme: "grid",
       styles: {
-        fontSize: 5.5,
-        cellPadding: { top: 1, bottom: 1, left: 1.5, right: 1.5 },
+        fontSize: 6.5,
+        cellPadding: { top: 0.8, bottom: 0.8, left: 1.2, right: 1.2 },
         lineColor: [200, 200, 200],
         lineWidth: 0.15,
         overflow: "linebreak",
@@ -573,22 +564,21 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: [255, 255, 255],
-        fontSize: 5.5,
+        fontSize: 6.5,
         fontStyle: "bold",
         halign: "center",
-        cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1.5 },
+        cellPadding: { top: 1.2, bottom: 1.2, left: 1.2, right: 1.2 },
       },
       columnStyles: {
-        0:  { halign: "center", cellWidth: 6 },    // No
-        1:  { cellWidth: 46 },                      // Komponen
-        2:  { halign: "center", cellWidth: 9 },     // Satuan
-        3:  { halign: "center", cellWidth: 8 },     // Bobot
-        4:  { halign: "right",  cellWidth: 13 },    // ACH
-        5:  { halign: "right",  cellWidth: 42 },    // Target (RKAP)
-        6:  { halign: "center", cellWidth: 14 },    // Status
-        7:  { halign: "right",  cellWidth: 48 },    // Gap
-        8:  { halign: "right",  cellWidth: 48 },    // Daily
-        9:  { halign: "right",  cellWidth: 14 },    // Kum
+        0:  { halign: "center", cellWidth: 7 },    // No
+        1:  { cellWidth: 52 },                      // Komponen
+        2:  { halign: "center", cellWidth: 10 },    // Satuan
+        3:  { halign: "center", cellWidth: 9 },     // Bobot
+        4:  { halign: "right",  cellWidth: 15 },    // ACH
+        5:  { halign: "right",  cellWidth: 50 },    // Target (RKAP)
+        6:  { halign: "center", cellWidth: 16 },    // Status
+        7:  { halign: "right",  cellWidth: 55 },    // Gap
+        8:  { halign: "right",  cellWidth: 55 },    // Daily
       },
       didParseCell: (data) => {
         if (data.section !== "body") return;
