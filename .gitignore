@@ -39,6 +39,24 @@ yarn-error.log*
 # data directory (contains business KPI data & auth)
 /data/
 
+# Tool results (development artifacts)
+tool-results/
+
+# Database files
+db/*.db
+
+# Key files
+*.key
+
+# Download directory (screenshots, generated files)
+/download/
+
+# Examples (not for production)
+/examples/
+
+# Upload directory (business data files - KPI, PDF, APK)
+/upload/
+
 
 # typescript
 *.tsbuildinfo
@@ -55,3 +73,6 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# CLI artifacts
+--timeout

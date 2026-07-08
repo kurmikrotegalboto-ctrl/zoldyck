@@ -146,7 +146,7 @@ export async function verifyLogin(username: string, password: string): Promise<{
   }
 
   const hash = await getEffectiveHash();
-  const isMatch = bcrypt.compareSync(password, hash);
+  const isMatch = await bcrypt.compare(password, hash);
 
   if (isMatch) {
     failedAttempts = 0;
@@ -173,13 +173,13 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 
   const hash = await getEffectiveHash();
-  const isMatch = bcrypt.compareSync(currentPassword, hash);
+  const isMatch = await bcrypt.compare(currentPassword, hash);
   if (!isMatch) {
     return { success: false, error: "Password lama salah" };
   }
 
   // Save new hash to Supabase (persistent across deploys)
-  const newHash = bcrypt.hashSync(newPassword, SALT_ROUNDS);
+  const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
   const { error } = await supabase
     .from("app_settings")
     .upsert(
