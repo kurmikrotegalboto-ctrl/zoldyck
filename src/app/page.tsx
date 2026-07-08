@@ -1160,9 +1160,10 @@ export default function Home() {
               <p>
                 Mode:{" "}
                 {isServerMode
-                  ? "Server (data tersimpan)"
+                  ? "Cloud (Supabase)"
                   : "Lokal (data sementara)"}
               </p>
+              <p>Penyimpanan: {isServerMode ? "Persisten" : "Sementara"}</p>
               <p>Total Periode: {snapshots.length}</p>
             </div>
           </div>

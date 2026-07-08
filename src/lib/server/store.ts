@@ -1,27 +1,9 @@
-import fs from "fs";
-import path from "path";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { SnapshotData } from "../kpi-types";
 import { supabase } from "../supabase";
 
-// ── Paths (only used for auth) ──
-function getProjectRoot(): string {
-  const envDataDir = process.env.DATA_DIR;
-  if (envDataDir) return envDataDir;
-  return path.join(process.cwd(), "data");
-}
-
-const DATA_DIR = getProjectRoot();
-const AUTH_FILE = path.join(DATA_DIR, "auth.json");
 const SALT_ROUNDS = 12;
-
-// ── Helpers ──
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════
 // SECURE TOKEN SYSTEM — HMAC-signed, no server-side storage needed
@@ -29,14 +11,13 @@ function ensureDataDir() {
 
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// Token secret: from env var ONLY (required for Edge-compatible middleware)
 let _cachedSecret: string | null = null;
 
 function getTokenSecret(): string {
   if (_cachedSecret) return _cachedSecret;
   const envSecret = process.env.TOKEN_SECRET;
   if (envSecret) { _cachedSecret = envSecret; return envSecret; }
-  const pwHash = process.env.AUTH_PASSWORD_HASH || ENV_PASSWORD_HASH;
+  const pwHash = process.env.AUTH_PASSWORD_HASH || "";
   if (pwHash) { _cachedSecret = pwHash; return pwHash; }
   const secret = crypto.randomBytes(32).toString("hex");
   _cachedSecret = secret;
@@ -78,58 +59,54 @@ export function verifySignedToken(token: string): boolean {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// AUTH — Password management with file persistence
+// AUTH — Password & username via Supabase (persistent)
 // ══════════════════════════════════════════════════════════════════
 
 const ENV_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH || "";
 const ENV_USERNAME = process.env.AUTH_USERNAME || "admin";
 
-interface AuthData {
-  passwordHash?: string;
-  username?: string;
+async function getStoredPasswordHash(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "password_hash")
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.value as string;
 }
 
-function loadAuthData(): AuthData {
-  ensureDataDir();
-  try {
-    if (fs.existsSync(AUTH_FILE)) {
-      return JSON.parse(fs.readFileSync(AUTH_FILE, "utf-8"));
-    }
-  } catch {}
-  return {};
+async function getStoredUsername(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "username")
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.value as string;
 }
 
-function saveAuthData(data: AuthData): void {
-  ensureDataDir();
-  try {
-    fs.writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Failed to save auth data:", e);
-  }
-}
+async function getEffectiveHash(): Promise<string> {
+  // 1. Supabase (persistent — after user changes password, this takes over)
+  const dbHash = await getStoredPasswordHash();
+  if (dbHash) return dbHash;
 
-function getEffectiveHash(): string {
+  // 2. Env var fallback (initial setup from Vercel)
   if (ENV_PASSWORD_HASH) return ENV_PASSWORD_HASH;
 
-  const authData = loadAuthData();
-  if (authData.passwordHash) return authData.passwordHash;
-
-  const randomPwd = crypto.randomBytes(8).toString("hex");
-  const hash = bcrypt.hashSync(randomPwd, SALT_ROUNDS);
-  saveAuthData({ passwordHash: hash });
-  return hash;
+  throw new Error("No password configured. Set AUTH_PASSWORD_HASH env var.");
 }
 
-function getEffectiveUsername(): string {
-  const authData = loadAuthData();
-  return authData.username || ENV_USERNAME;
+async function getEffectiveUsername(): Promise<string> {
+  const dbUser = await getStoredUsername();
+  if (dbUser) return dbUser;
+  return ENV_USERNAME;
 }
 
 // ── Brute-force protection (in-memory) ──
 let failedAttempts = 0;
 let lockUntil: number | null = null;
 
-export function verifyLogin(username: string, password: string): { success: boolean; locked: boolean; remainingAttempts: number } {
+export async function verifyLogin(username: string, password: string): Promise<{ success: boolean; locked: boolean; remainingAttempts: number }> {
   const MAX_ATTEMPTS = 5;
   const LOCK_DURATION_MS = 15 * 60 * 1000;
 
@@ -141,7 +118,9 @@ export function verifyLogin(username: string, password: string): { success: bool
     lockUntil = null;
   }
 
-  if (username !== getEffectiveUsername()) {
+  const effectiveUsername = await getEffectiveUsername();
+
+  if (username !== effectiveUsername) {
     failedAttempts += 1;
     const remaining = MAX_ATTEMPTS - failedAttempts;
     if (remaining <= 0) {
@@ -152,7 +131,7 @@ export function verifyLogin(username: string, password: string): { success: bool
     return { success: false, locked: false, remainingAttempts: remaining };
   }
 
-  const hash = getEffectiveHash();
+  const hash = await getEffectiveHash();
   const isMatch = bcrypt.compareSync(password, hash);
 
   if (isMatch) {
@@ -171,23 +150,32 @@ export function verifyLogin(username: string, password: string): { success: bool
   return { success: false, locked: false, remainingAttempts: remaining };
 }
 
-export function changePassword(currentPassword: string, newPassword: string): { success: boolean; error?: string } {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
   if (!newPassword || newPassword.length < 6) {
     return { success: false, error: "Password baru minimal 6 karakter" };
   }
   if (newPassword.length > 64) {
     return { success: false, error: "Password maksimal 64 karakter" };
   }
-  const hash = getEffectiveHash();
+
+  const hash = await getEffectiveHash();
   const isMatch = bcrypt.compareSync(currentPassword, hash);
   if (!isMatch) {
     return { success: false, error: "Password lama salah" };
   }
 
+  // Save new hash to Supabase (persistent across deploys)
   const newHash = bcrypt.hashSync(newPassword, SALT_ROUNDS);
-  const authData = loadAuthData();
-  authData.passwordHash = newHash;
-  saveAuthData(authData);
+  const { error } = await supabase
+    .from("app_settings")
+    .upsert(
+      { key: "password_hash", value: newHash },
+      { onConflict: "key" }
+    );
+
+  if (error) {
+    return { success: false, error: "Gagal menyimpan password baru ke database" };
+  }
 
   return { success: true };
 }
@@ -220,7 +208,6 @@ export async function getSnapshots(): Promise<SnapshotData[]> {
 }
 
 export async function addOrUpdateSnapshot(newSnapshot: SnapshotData): Promise<SnapshotData[]> {
-  // Check if snapshot exists for this date
   const { data: existing, error: fetchError } = await supabase
     .from("snapshots")
     .select("units")
@@ -248,7 +235,6 @@ export async function addOrUpdateSnapshot(newSnapshot: SnapshotData): Promise<Sn
     finalUnits = currentUnits;
   }
 
-  // Upsert with merged units
   const { error: upsertError } = await supabase
     .from("snapshots")
     .upsert(

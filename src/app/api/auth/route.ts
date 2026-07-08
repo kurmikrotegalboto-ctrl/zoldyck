@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
     }
 
-    const result = verifyLogin(username, password);
+    const result = await verifyLogin(username, password);
 
     if (result.locked) {
       return NextResponse.json(
@@ -96,7 +96,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Password baru minimal 6 karakter, maksimal 64" }, { status: 400 });
     }
 
-    const result = changePassword(currentPassword, newPassword);
+    const result = await changePassword(currentPassword, newPassword);
     if (result.success) {
       return NextResponse.json({ success: true, message: "Password berhasil diubah" });
     }
