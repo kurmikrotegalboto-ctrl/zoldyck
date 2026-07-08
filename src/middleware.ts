@@ -1,34 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+// Edge-compatible token verification
+// Derives HMAC secret from AUTH_PASSWORD_HASH (already set on Vercel)
+function getSecret(): string | null {
+  return process.env.TOKEN_SECRET || process.env.AUTH_PASSWORD_HASH || null;
+}
+
+async function verifyTokenAsync(token: string): Promise<boolean> {
+  try {
+    const secret = getSecret();
+    if (!secret) return false; // No secret = deny all (fail-closed)
+
+    const dotIdx = token.lastIndexOf(".");
+    if (dotIdx < 0) return false;
+
+    const payload = token.substring(0, dotIdx);
+    const signature = token.substring(dotIdx + 1);
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+
+    let sigBuffer: Uint8Array;
+    try {
+      sigBuffer = Uint8Array.from(atob(signature), (c) => c.charCodeAt(0));
+    } catch {
+      return false;
+    }
+
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      sigBuffer,
+      encoder.encode(payload)
+    );
+
+    if (!isValid) return false;
+
+    const expiry = parseInt(payload, 10);
+    if (isNaN(expiry) || Date.now() > expiry) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public paths that don't need auth
   if (pathname === "/login" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     const response = NextResponse.next();
     setSecurityHeaders(response);
     return response;
   }
 
-  // API routes that don't need auth (login itself)
   if (pathname === "/api/auth" && request.method === "POST") {
     const response = NextResponse.next();
     setSecurityHeaders(response);
     return response;
   }
 
-  // Check for auth cookie
   const token = request.cookies.get("auth_token");
-  if (!token) {
-    // Redirect to login for page requests
-    if (!pathname.startsWith("/api/")) {
-      const loginUrl = new URL("/login", request.url);
-      const response = NextResponse.redirect(loginUrl);
-      setSecurityHeaders(response);
-      return response;
-    }
-    // Return 401 for API requests
-    const response = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let valid = false;
+  if (token) {
+    valid = await verifyTokenAsync(token.value);
+  }
+
+  if (!valid) {
+    const response = pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : NextResponse.redirect(new URL("/login", request.url));
+
+    if (token) response.cookies.delete("auth_token");
     setSecurityHeaders(response);
     return response;
   }
@@ -39,17 +88,15 @@ export function middleware(request: NextRequest) {
 }
 
 function setSecurityHeaders(response: NextResponse) {
-  // Prevent clickjacking
   response.headers.set("X-Frame-Options", "DENY");
-  // Prevent MIME-type sniffing
   response.headers.set("X-Content-Type-Options", "nosniff");
-  // XSS protection (legacy browsers)
   response.headers.set("X-XSS-Protection", "1; mode=block");
-  // Referrer policy
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  // Permissions policy - disable unnecessary browser features
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  // Cache control for API
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'"
+  );
   if (response.headers.get("content-type")?.includes("json")) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   }

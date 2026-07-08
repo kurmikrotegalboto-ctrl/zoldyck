@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# data directory (contains business KPI data & auth)
+/data/
+
 
 # typescript
 *.tsbuildinfo
