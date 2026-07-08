@@ -5,11 +5,12 @@ import {
   Target, Clock, ChevronRight, ChevronDown,
   Medal, Flame, ShieldCheck, AlertTriangle,
   ArrowUpRight, ArrowDownRight, Check, Infinity, Zap,
-  ArrowUpDown, ArrowUp, ArrowDown, Filter
+  ArrowUpDown, ArrowUp, ArrowDown, Filter, Download
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CAPPING_MAP } from "@/lib/kpi-types";
 import type { KpiUnit } from "@/lib/kpi-types";
+import * as XLSX from "xlsx";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 
@@ -376,6 +377,92 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
     [rawRows]
   );
 
+  // ─── Download Excel ──────────────────────────────────────────────────
+  const handleDownload = () => {
+    const unit = analysis.unit;
+    const label = analysis.label;
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+
+    // Build sheet rows from rawRows (always gap-desc order)
+    const statusLabel = (s: string) => s === "chase" ? "Chase Exceed" : s === "super_chase" ? "Chase Super Exceed" : "Sudah Capai";
+    const gapStr = (r: StrategyRow) => {
+      if (r.status === "achieved") return "-";
+      const abs = Math.abs(r.gapInSatuan);
+      if (r.satuan === "Rp") return `Rp ${Math.round(abs).toLocaleString("id-ID")}`;
+      if (r.satuan === "Jumlah") return Math.round(abs).toLocaleString("id-ID");
+      if (r.satuan === "Gramasi") return `${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} gram`;
+      if (r.satuan === "%") return `${abs.toFixed(2).replace(".",",")}%`;
+      return String(abs);
+    };
+    const dailyStr = (r: StrategyRow) => {
+      if (r.status === "achieved") return "Sudah Capai";
+      const abs = Math.abs(r.dailyTarget);
+      const arrow = r.isInverse ? "↓" : "↑";
+      if (r.satuan === "Rp") return `${arrow} Rp ${Math.round(abs).toLocaleString("id-ID")}/hari`;
+      if (r.satuan === "Jumlah") return `${arrow} ${Math.round(abs).toLocaleString("id-ID")}/hari`;
+      if (r.satuan === "Gramasi") return `${arrow} ${abs.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} gram/hari`;
+      if (r.satuan === "%") return `${arrow} ${abs.toFixed(4).replace(".",",")}%/hari`;
+      return `${arrow} ${abs.toFixed(2)}/hari`;
+    };
+
+    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target (%)", "Label Target", "Status", "Gap (Satuan)", "Target / Hari", "Poin Gain", "KPI Kumulatif"];
+    const dataRows = rawRows.map((r, i) => {
+      const sim = simulationData.find(s => s.name === r.name);
+      return [
+        i + 1,
+        r.name,
+        r.satuan,
+        r.bobot,
+        r.currentAch,
+        r.targetAch,
+        r.targetLabel,
+        statusLabel(r.status),
+        gapStr(r),
+        dailyStr(r),
+        sim ? sim.gain : 0,
+        sim ? sim.cumulative : analysis.totalKpi,
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([
+      // Title rows
+      [`Gap Analysis KPI - ${label}`],
+      [`Tanggal: ${dateStr}  |  Sisa Hari Kerja: ${workDays}  |  Skor KPI: ${analysis.totalKpi.toFixed(2)}`],
+      [],
+      headerRow,
+      ...dataRows,
+      [],
+      [`Chase Exceed: ${chaseRows.length}  |  Chase Super Exceed: ${superChaseRows.length}  |  Sudah Capai: ${achievedRows.length}`],
+    ]);
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 4 },   // No
+      { wch: 28 },  // Komponen
+      { wch: 10 },  // Satuan
+      { wch: 7 },   // Bobot
+      { wch: 10 },  // ACH
+      { wch: 10 },  // Target
+      { wch: 16 },  // Label
+      { wch: 20 },  // Status
+      { wch: 30 },  // Gap
+      { wch: 35 },  // Daily
+      { wch: 12 },  // Gain
+      { wch: 14 },  // Cumul
+    ];
+
+    // Merge title
+    ws["!merges"] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 11 } },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Gap Analysis");
+    XLSX.writeFile(wb, `Gap Analysis ${label} ${dateStr}.xlsx`);
+  };
+
   return (
     <div className="space-y-4 animate-fade-up">
       {/* ═══ HERO: Score vs Target ═══ */}
@@ -430,9 +517,18 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
               <Target className="h-4 w-4" />
               <h3 className="text-sm font-bold">Gap Analysis per Sub-Komponen</h3>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
-              <Clock className="h-3 w-3" />
-              <span>{workDays} hari kerja tersisa</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownload}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold transition-all border border-white/20"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Excel
+              </button>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                <Clock className="h-3 w-3" />
+                <span>{workDays} hari kerja tersisa</span>
+              </div>
             </div>
           </div>
           <p className="text-[10px] text-slate-400 mt-1">
