@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error("Login error:", e);
     return NextResponse.json({ error: "Gagal login" }, { status: 500 });
   }
 }

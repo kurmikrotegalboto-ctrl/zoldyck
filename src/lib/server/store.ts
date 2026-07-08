@@ -93,38 +93,26 @@ async function getEffectiveHash(): Promise<string> {
   }
 
   // 3. Query Supabase (only if no env var)
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "password_hash")
-    .maybeSingle();
-  if (!error && data?.value) {
-    _cachedHash = data.value as string;
-    _hashCacheTime = Date.now();
-    return _cachedHash;
+  try {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "password_hash")
+      .maybeSingle();
+    if (!error && data?.value) {
+      _cachedHash = data.value as string;
+      _hashCacheTime = Date.now();
+      return _cachedHash;
+    }
+  } catch {
+    // Supabase unreachable — continue to throw
   }
 
   throw new Error("No password configured. Set AUTH_PASSWORD_HASH env var.");
 }
 
 async function getEffectiveUsername(): Promise<string> {
-  if (_cachedUsername && Date.now() - _usernameCacheTime < CACHE_TTL_MS) {
-    return _cachedUsername;
-  }
-
-  const { data, error } = await supabase
-    .from("app_settings")
-    .select("value")
-    .eq("key", "username")
-    .maybeSingle();
-  if (!error && data?.value) {
-    _cachedUsername = data.value as string;
-    _usernameCacheTime = Date.now();
-    return _cachedUsername;
-  }
-
-  _cachedUsername = ENV_USERNAME;
-  _usernameCacheTime = Date.now();
+  // Always use env var (username rarely changes, avoids unnecessary DB call)
   return ENV_USERNAME;
 }
 
