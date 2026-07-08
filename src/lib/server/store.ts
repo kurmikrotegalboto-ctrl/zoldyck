@@ -44,7 +44,7 @@ function getTokenSecret(): string {
   // 3. Fallback: generate ephemeral secret
   const secret = crypto.randomBytes(32).toString("hex");
   _cachedSecret = secret;
-  console.warn("[SECURITY] No TOKEN_SECRET or AUTH_PASSWORD_HASH set. Using ephemeral secret.");
+  // Fallback: generate ephemeral secret (no log to avoid info leak)
   return secret;
 }
 
@@ -130,19 +130,7 @@ function getEffectiveHash(): string {
   const randomPwd = crypto.randomBytes(8).toString("hex"); // 16-char random password
   const hash = bcrypt.hashSync(randomPwd, SALT_ROUNDS);
   saveAuthData({ passwordHash: hash });
-  console.warn(
-    "\n" +
-    "╔══════════════════════════════════════════════════════════════╗\n" +
-    "║  SECURITY: No AUTH_PASSWORD_HASH env var set.              ║" +
-    "\n" +
-    "║  A random password has been generated and stored.          ║" +
-    "\n" +
-    `║  Password: ${randomPwd}                                ║` +
-    "\n" +
-    "║  Set AUTH_PASSWORD_HASH env var to use a fixed password.  ║" +
-    "\n" +
-    "╚══════════════════════════════════════════════════════════════╝\n"
-  );
+  // Random password generated (no console log to avoid leak)
   return hash;
 }
 
