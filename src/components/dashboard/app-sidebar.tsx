@@ -118,11 +118,8 @@ export function AppSidebar({
               }`}
             >
               <h1 className="text-sm font-black tracking-tight text-white whitespace-nowrap">
-                MONEV <span className="text-emerald-400">KPI</span>
+                ZOLDYCK
               </h1>
-              <p className="text-[9px] text-slate-500 font-medium tracking-wider uppercase -mt-0.5">
-                Tegalboto 2026
-              </p>
             </div>
           </div>
         </div>

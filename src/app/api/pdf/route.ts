@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     sc(BLACK);
-    doc.text("MONEV KPI / TEGALBOTO 2026", m, y + 4);
+    doc.text("ZOLDYCK", m, y + 4);
 
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
@@ -410,7 +410,7 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(4.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(150, 150, 150);
-    doc.text("MONEV KPI TEGALBOTO 2026 - Dokumen otomatis", m, fy);
+    doc.text("ZOLDYCK - Dokumen otomatis", m, fy);
     doc.text(date, pw - m - 30, fy);
 
     // ── Output ──

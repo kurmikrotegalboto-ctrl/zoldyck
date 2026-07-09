@@ -396,7 +396,7 @@ export async function generateKpiPdf({
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(...GREEN);
-    pdf.text("MONEV KPI / TEGALBOTO 2026", margin, y);
+    pdf.text("ZOLDYCK", margin, y);
 
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
@@ -466,7 +466,7 @@ export async function generateKpiPdf({
 
     pdf.setFontSize(6);
     pdf.setTextColor(150, 150, 150);
-    pdf.text("MONEV KPI TEGALBOTO 2026 - Dokumen dihasilkan otomatis", margin, fy);
+    pdf.text("ZOLDYCK - Dokumen dihasilkan otomatis", margin, fy);
     pdf.text(`Halaman ${pageNum}`, pageWidth - margin, fy, { align: "right" });
   }
 

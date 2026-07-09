@@ -65,8 +65,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
               <Lock className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-white">MONEV KPI</h1>
-            <p className="text-emerald-100 text-sm mt-1">Kanwil Surabaya - TEGALBOTO 2026</p>
+            <h1 className="text-xl font-bold text-white">ZOLDYCK</h1>
           </div>
 
           {/* Form */}
