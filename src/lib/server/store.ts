@@ -116,52 +116,83 @@ async function getEffectiveUsername(): Promise<string> {
   return ENV_USERNAME;
 }
 
-// ── Brute-force protection (in-memory) ──
-let failedAttempts = 0;
-let lockUntil: number | null = null;
+// ── Brute-force protection (persistent via Supabase) ──
+const MAX_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttemptRow {
+  attempts: number;
+  locked_until: string | null;
+}
+
+async function getLoginAttempts(): Promise<LoginAttemptRow> {
+  try {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "login_attempts")
+      .maybeSingle();
+    if (data?.value) return JSON.parse(data.value as string);
+  } catch { /* ignore */ }
+  return { attempts: 0, locked_until: null };
+}
+
+async function setLoginAttempts(row: LoginAttemptRow): Promise<void> {
+  await supabase
+    .from("app_settings")
+    .upsert(
+      { key: "login_attempts", value: JSON.stringify(row) },
+      { onConflict: "key" }
+    );
+}
 
 export async function verifyLogin(username: string, password: string): Promise<{ success: boolean; locked: boolean; remainingAttempts: number }> {
-  const MAX_ATTEMPTS = 5;
-  const LOCK_DURATION_MS = 15 * 60 * 1000;
+  const state = await getLoginAttempts();
 
-  if (lockUntil && Date.now() < lockUntil) {
-    return { success: false, locked: true, remainingAttempts: 0 };
-  }
-  if (lockUntil && Date.now() >= lockUntil) {
-    failedAttempts = 0;
-    lockUntil = null;
+  // Check lockout
+  if (state.locked_until) {
+    const lockTime = parseInt(state.locked_until, 10);
+    if (Date.now() < lockTime) {
+      return { success: false, locked: true, remainingAttempts: 0 };
+    }
+    // Lock expired — reset
+    state.attempts = 0;
+    state.locked_until = null;
+    await setLoginAttempts(state);
   }
 
   const effectiveUsername = await getEffectiveUsername();
 
   if (username !== effectiveUsername) {
-    failedAttempts += 1;
-    const remaining = MAX_ATTEMPTS - failedAttempts;
-    if (remaining <= 0) {
-      lockUntil = Date.now() + LOCK_DURATION_MS;
-      failedAttempts = 0;
+    state.attempts += 1;
+    if (state.attempts >= MAX_ATTEMPTS) {
+      state.locked_until = String(Date.now() + LOCK_DURATION_MS);
+      state.attempts = 0;
+      await setLoginAttempts(state);
       return { success: false, locked: true, remainingAttempts: 0 };
     }
-    return { success: false, locked: false, remainingAttempts: remaining };
+    await setLoginAttempts(state);
+    return { success: false, locked: false, remainingAttempts: MAX_ATTEMPTS - state.attempts };
   }
 
   const hash = await getEffectiveHash();
   const isMatch = await bcrypt.compare(password, hash);
 
   if (isMatch) {
-    failedAttempts = 0;
-    lockUntil = null;
+    // Reset counter on success
+    await setLoginAttempts({ attempts: 0, locked_until: null });
     return { success: true, locked: false, remainingAttempts: MAX_ATTEMPTS };
   }
 
-  failedAttempts += 1;
-  const remaining = MAX_ATTEMPTS - failedAttempts;
-  if (remaining <= 0) {
-    lockUntil = Date.now() + LOCK_DURATION_MS;
-    failedAttempts = 0;
+  state.attempts += 1;
+  if (state.attempts >= MAX_ATTEMPTS) {
+    state.locked_until = String(Date.now() + LOCK_DURATION_MS);
+    state.attempts = 0;
+    await setLoginAttempts(state);
     return { success: false, locked: true, remainingAttempts: 0 };
   }
-  return { success: false, locked: false, remainingAttempts: remaining };
+  await setLoginAttempts(state);
+  return { success: false, locked: false, remainingAttempts: MAX_ATTEMPTS - state.attempts };
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
