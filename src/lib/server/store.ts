@@ -19,9 +19,9 @@ function getTokenSecret(): string {
   if (envSecret) { _cachedSecret = envSecret; return envSecret; }
   const pwHash = process.env.AUTH_PASSWORD_HASH || "";
   if (pwHash) { _cachedSecret = pwHash; return pwHash; }
-  const secret = crypto.randomBytes(32).toString("hex");
-  _cachedSecret = secret;
-  return secret;
+  // CRITICAL: No random fallback! Without a stable secret, tokens created
+  // on one serverless instance can NEVER be verified by middleware on another.
+  throw new Error("TOKEN_SECRET or AUTH_PASSWORD_HASH env var must be set for authentication.");
 }
 
 /** Create a signed token: `{expiry}.{base64_hmac}` */

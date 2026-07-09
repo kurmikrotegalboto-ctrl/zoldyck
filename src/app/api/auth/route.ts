@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLogin, changePassword, createSignedToken } from "@/lib/server/store";
-import { cookies } from "next/headers";
+import { verifyLogin, changePassword, createSignedToken, verifySignedToken } from "@/lib/server/store";
+
+// Prevent Vercel cold-start timeout (default 10s is too short for bcrypt + Supabase)
+export const maxDuration = 30;
 
 function isSecureRequest(request: NextRequest): boolean {
-  const proto = request.headers.get("x-forwarded-proto");
-  if (proto === "https") return true;
-  if (request.url.startsWith("https://")) return true;
   const host = request.headers.get("host") || "";
+  // Local dev = not secure
   if (host.startsWith("localhost") || host.startsWith("127.0.0.1")) return false;
-  return false;
+  // All non-local requests (Vercel = always HTTPS) should use secure cookie
+  return true;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,31 +44,28 @@ export async function POST(request: NextRequest) {
     // Success — create a cryptographically signed token
     const token = createSignedToken();
     const secure = isSecureRequest(request);
-    const cookieStore = await cookies();
-    cookieStore.set("auth_token", token, {
+    const response = NextResponse.json({ success: true });
+    
+    // Set cookie directly on response for reliability (avoids cookies() API edge cases)
+    response.cookies.set("auth_token", token, {
       httpOnly: true,
       secure: secure,
-      sameSite: "lax", // lax = cookie dikirim saat navigasi dari link eksternal (WhatsApp, email, dll)
+      sameSite: "lax",
       maxAge: 24 * 60 * 60,
       path: "/",
     });
 
-    return NextResponse.json({ success: true });
+    return response;
   } catch (e) {
     console.error("Login error:", e);
     return NextResponse.json({ error: "Gagal login" }, { status: 500 });
   }
 }
 
-export async function GET() {
-  // Check if current session is valid
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token");
+    const token = request.cookies.get("auth_token");
     if (!token) return NextResponse.json({ authenticated: false });
-
-    // Dynamically import to avoid bundling crypto in edge
-    const { verifySignedToken } = await import("@/lib/server/store");
     const valid = verifySignedToken(token.value);
     return NextResponse.json({ authenticated: valid });
   } catch {
@@ -77,9 +75,9 @@ export async function GET() {
 
 export async function DELETE() {
   try {
-    const cookieStore = await cookies();
-    cookieStore.delete("auth_token");
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.cookies.delete("auth_token");
+    return response;
   } catch {
     return NextResponse.json({ error: "Gagal logout" }, { status: 500 });
   }
