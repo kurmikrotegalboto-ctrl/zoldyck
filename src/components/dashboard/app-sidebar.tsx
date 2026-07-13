@@ -13,9 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Table2,
 } from "lucide-react";
 
-type ViewType = "kpi" | "trend" | "analisis" | "target";
+type ViewType = "kpi" | "trend" | "analisis" | "target" | "monev";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -35,6 +36,7 @@ const kpiSubItems: { key: ViewType; label: string; icon: typeof BarChart3 }[] = 
   { key: "trend", label: "Tren", icon: TrendingUp },
   { key: "analisis", label: "Analisis", icon: Activity },
   { key: "target", label: "Target", icon: Target },
+  { key: "monev", label: "Monev", icon: Table2 },
 ];
 
 export function AppSidebar({
@@ -51,7 +53,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [kpiExpanded, setKpiExpanded] = useState(true);
 
-  const isKpiGroupActive = ["kpi", "trend", "analisis", "target"].includes(activeView);
+  const isKpiGroupActive = ["kpi", "trend", "analisis", "target", "monev"].includes(activeView);
 
   const handleNavClick = (view: ViewType) => {
     setActiveView(view);

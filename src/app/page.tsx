@@ -47,6 +47,7 @@ import { TrendCharts } from "@/components/dashboard/trend-charts";
 import { CompareCalendar } from "@/components/dashboard/compare-calendar";
 import { KpiAnalysis } from "@/components/dashboard/kpi-analysis";
 import { TargetAnalysis } from "@/components/dashboard/target-analysis";
+import { MonevTable } from "@/components/dashboard/monev-table";
 import { defaultSnapshot } from "@/lib/default-data";
 import { parseMultipleFiles } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
@@ -116,7 +117,7 @@ export default function Home() {
   const [snapshots, setSnapshots] = useState<SnapshotData[]>([defaultSnapshot]);
   const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
   const [selectedUnitCode, setSelectedUnitCode] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<"kpi" | "trend" | "analisis" | "target">("kpi");
+  const [activeView, setActiveView] = useState<"kpi" | "trend" | "analisis" | "target" | "monev">("kpi");
   const [isServerMode, setIsServerMode] = useState(false);
 
   // ── Upload state ──
@@ -973,6 +974,8 @@ export default function Home() {
                 selectedUnitCode={selectedUnitCode}
                 onUnitSelect={(code) => setSelectedUnitCode(code)}
               />
+            ) : activeView === "monev" ? (
+              <MonevTable snapshots={snapshots} />
             ) : selectedUnit ? (
               <UnitDetailTable
                 unit={selectedUnit}
