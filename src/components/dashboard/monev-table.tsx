@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Table2, ArrowUpDown, ChevronDown, Check, Search, X } from "lucide-react";
+import { Table2, ArrowUpDown, ChevronDown, Check, Search, X, Download, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -611,6 +611,43 @@ export function MonevTable({ snapshots }: MonevTableProps) {
     });
   };
 
+  // PDF download
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (effectiveSelected.length === 0 || !snapA || !snapB) return;
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/monev-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          snapshots,
+          selectedSubs: effectiveSelected,
+          dateIndexA,
+          dateIndexB,
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      // Get filename from content-disposition
+      const cd = res.headers.get("content-disposition");
+      const match = cd?.match(/filename="(.+)"/);
+      a.download = match?.[1] || "Monev_Komponen.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PDF download error:", e);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Remove one from selection
   const removeSub = (sub: string) => {
     setSelectedSubs((prev) => prev.filter((s) => s !== sub));
@@ -644,6 +681,20 @@ export function MonevTable({ snapshots }: MonevTableProps) {
             Perbandingan realisasi per sub komponen antar periode
           </p>
         </div>
+        {effectiveSelected.length > 0 && snapA && snapB && (
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-medium rounded-lg transition-colors shrink-0"
+          >
+            {downloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {downloading ? "Generating..." : "Download PDF"}
+          </button>
+        )}
       </div>
 
       {/* Controls */}
