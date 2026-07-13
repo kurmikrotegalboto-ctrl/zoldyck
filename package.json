@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && mkdir -p .next/standalone/data && [ -f data/snapshots.json ] && cp data/snapshots.json .next/standalone/data/; [ -f data/auth.json ] && cp data/auth.json .next/standalone/data/; true",
+    "build": "next build",
+    "build:standalone": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && mkdir -p .next/standalone/data && [ -f data/snapshots.json ] && cp data/snapshots.json .next/standalone/data/; [ -f data/auth.json ] && cp data/auth.json .next/standalone/data/; true",
     "start": "cd .next/standalone && NODE_ENV=production node server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push",
