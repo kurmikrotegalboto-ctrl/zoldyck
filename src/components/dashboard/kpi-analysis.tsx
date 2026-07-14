@@ -28,7 +28,7 @@ function formatNum(n: number, satuan?: string): string {
   if (n === 0) return "-";
   if (satuan === "%") {
     // Show raw decimal value without rounding
-    return n.toLocaleString("id-ID", { maximumFractionDigits: 10, minimumFractionDigits: 2 });
+    return n.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   return n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
