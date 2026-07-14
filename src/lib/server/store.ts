@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { SnapshotData } from "../kpi-types";
-import { supabase } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
 const SALT_ROUNDS = 12;
 
@@ -93,6 +93,9 @@ async function getEffectiveHash(): Promise<string> {
   }
 
   // 3. Query Supabase (only if no env var)
+  if (!isSupabaseConfigured()) {
+    throw new Error("No password configured. Set AUTH_PASSWORD_HASH env var.");
+  }
   try {
     const { data, error } = await supabase
       .from("app_settings")
@@ -126,6 +129,7 @@ interface LoginAttemptRow {
 }
 
 async function getLoginAttempts(): Promise<LoginAttemptRow> {
+  if (!isSupabaseConfigured()) return { attempts: 0, locked_until: null };
   try {
     const { data } = await supabase
       .from("app_settings")
@@ -138,6 +142,7 @@ async function getLoginAttempts(): Promise<LoginAttemptRow> {
 }
 
 async function setLoginAttempts(row: LoginAttemptRow): Promise<void> {
+  if (!isSupabaseConfigured()) return;
   await supabase
     .from("app_settings")
     .upsert(
@@ -211,6 +216,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
   // Save new hash to Supabase (persistent across deploys)
   const newHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: "Supabase tidak terkonfigurasi" };
+  }
   const { error } = await supabase
     .from("app_settings")
     .upsert(
@@ -231,6 +239,10 @@ export async function changePassword(currentPassword: string, newPassword: strin
 // ══════════════════════════════════════════════════════════════════
 
 export async function getSnapshots(): Promise<SnapshotData[]> {
+  if (!isSupabaseConfigured()) {
+    console.error("[store] getSnapshots: Supabase not configured");
+    return [];
+  }
   try {
     const { data, error } = await supabase
       .from("snapshots")
@@ -254,6 +266,9 @@ export async function getSnapshots(): Promise<SnapshotData[]> {
 }
 
 export async function addOrUpdateSnapshot(newSnapshot: SnapshotData): Promise<SnapshotData[]> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase tidak dikonfigurasi. Data tidak bisa disimpan ke server.");
+  }
   const { data: existing, error: fetchError } = await supabase
     .from("snapshots")
     .select("units")
@@ -301,6 +316,9 @@ export async function addOrUpdateSnapshot(newSnapshot: SnapshotData): Promise<Sn
 }
 
 export async function deleteSnapshot(dateSort: string): Promise<SnapshotData[]> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase tidak dikonfigurasi.");
+  }
   const { error } = await supabase
     .from("snapshots")
     .delete()

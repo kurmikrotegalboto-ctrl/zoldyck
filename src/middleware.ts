@@ -79,6 +79,13 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Health check bypasses auth
+  if (pathname === "/api/health") {
+    const response = NextResponse.next();
+    setSecurityHeaders(response);
+    return response;
+  }
+
   const token = request.cookies.get("auth_token");
   let valid = false;
   if (token) {
