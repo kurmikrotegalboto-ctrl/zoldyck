@@ -35,7 +35,7 @@ const kpiSubItems: { key: ViewType; label: string; icon: typeof BarChart3 }[] = 
   { key: "kpi", label: "KPI", icon: BarChart3 },
   { key: "trend", label: "Tren", icon: TrendingUp },
   { key: "analisis", label: "Analisis", icon: Activity },
-  { key: "target", label: "Target", icon: Target },
+  { key: "target", label: "Breakdown", icon: Target },
   { key: "monev", label: "Monev", icon: Table2 },
 ];
 
