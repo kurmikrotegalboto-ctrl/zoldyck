@@ -51,6 +51,7 @@ import { MonevTable } from "@/components/dashboard/monev-table";
 import { defaultSnapshot } from "@/lib/default-data";
 import { parseMultipleFiles } from "@/lib/kpi-parser";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
+import { useToast } from "@/hooks/use-toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ export default function Home() {
   const [showUnitPopover, setShowUnitPopover] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { toast } = useToast();
   const [deleteDate, setDeleteDate] = useState("");
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
@@ -357,6 +359,11 @@ export default function Home() {
           setSnapshots(serverSnapshots);
           setSelectedSnapshotIndex(serverSnapshots.length - 1);
         }
+        toast({
+          title: "Berhasil disimpan",
+          description: "Data tersinkronisasi ke server",
+          variant: "default",
+        });
       } else {
         // Fallback to local mode so data isn't lost
         setIsServerMode(false);
@@ -364,6 +371,11 @@ export default function Home() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSnapshots));
         } catch { /* ignore */ }
+        toast({
+          title: "Gagal menyimpan ke server",
+          description: "Data hanya tersimpan di perangkat ini. Coba upload ulang.",
+          variant: "destructive",
+        });
       }
     } catch {
       setFileStatuses((prev) =>

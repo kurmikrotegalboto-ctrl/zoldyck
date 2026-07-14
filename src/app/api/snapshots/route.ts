@@ -18,10 +18,12 @@ function isValidUnit(u: unknown): u is KpiUnit {
 
 export async function GET() {
   try {
+    console.log("[snapshots GET] Fetching all snapshots...");
     const snapshots = await getSnapshots();
+    console.log("[snapshots GET] Returning", snapshots.length, "snapshots");
     return NextResponse.json({ snapshots });
   } catch (e) {
-    console.error("Get snapshots error:", e);
+    console.error("[snapshots GET] Error:", e);
     return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
   }
 }
@@ -31,14 +33,18 @@ export async function POST(request: NextRequest) {
     // Body size check
     const contentLength = request.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      console.error("[snapshots POST] Payload too large:", contentLength);
       return NextResponse.json({ error: "Payload terlalu besar (maks 5MB)" }, { status: 413 });
     }
 
     const body = await request.json();
     const snapshot: SnapshotData = body.snapshot;
 
+    console.log("[snapshots POST] Received snapshot:", snapshot?.date, snapshot?.dateSort, "units:", snapshot?.units?.length);
+
     // Validate snapshot structure
     if (!snapshot || typeof snapshot !== "object") {
+      console.error("[snapshots POST] Invalid snapshot body");
       return NextResponse.json({ error: "Data snapshot tidak valid" }, { status: 400 });
     }
 
