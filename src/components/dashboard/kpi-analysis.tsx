@@ -24,8 +24,12 @@ function getUnitLabel(code: string): string {
   return UNIT_LABELS[code] || code;
 }
 
-function formatNum(n: number): string {
+function formatNum(n: number, satuan?: string): string {
   if (n === 0) return "-";
+  if (satuan === "%") {
+    // Show raw decimal value without rounding
+    return n.toLocaleString("id-ID", { maximumFractionDigits: 10, minimumFractionDigits: 2 });
+  }
   return n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
 }
 
@@ -193,11 +197,11 @@ function SubKomponenCard({
                 </td>
                 {/* Realisasi */}
                 <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                  {formatNum(r.realisasi)}
+                  {formatNum(r.realisasi, r.satuan)}
                 </td>
                 {/* Target */}
                 <td className="px-3 py-2 text-right tabular-nums text-gray-500">
-                  {formatNum(r.target)}
+                  {formatNum(r.target, r.satuan)}
                 </td>
               </tr>
             ))}
@@ -219,10 +223,10 @@ function SubKomponenCard({
                 </span>
               </td>
               <td className="px-3 py-2 text-right tabular-nums text-gray-600 font-medium">
-                {formatNum(Math.round(avgReal))}
+                {formatNum(avgReal, satuan)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums text-gray-500">
-                {formatNum(Math.round(avgTarget))}
+                {formatNum(avgTarget, satuan)}
               </td>
             </tr>
           </tfoot>
