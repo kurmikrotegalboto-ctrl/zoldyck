@@ -186,24 +186,10 @@ export default function Home() {
     [snapshots]
   );
 
-  // ── localStorage persistence ──
+  // ── Data init: Server first, localStorage as offline fallback ──
   useEffect(() => {
     const init = async () => {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSnapshots(parsed);
-            setSelectedSnapshotIndex(parsed.length - 1);
-            setIsServerMode(true);
-            return;
-          }
-        }
-      } catch {
-        // silently ignore localStorage errors
-      }
-
+      // 1) Always try server first (fresh data from Supabase)
       try {
         const res = await fetch("/api/snapshots");
         if (res.ok) {
@@ -213,17 +199,30 @@ export default function Home() {
             setSelectedSnapshotIndex(data.snapshots.length - 1);
             setIsServerMode(true);
             try {
-              localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify(data.snapshots)
-              );
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(data.snapshots));
             } catch {
               // localStorage unavailable or full
             }
+            return;
           }
         }
       } catch {
-        // server unreachable — will use local data only
+        // server unreachable — fall through to localStorage
+      }
+
+      // 2) Fallback: localStorage (offline or server down)
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSnapshots(parsed);
+            setSelectedSnapshotIndex(parsed.length - 1);
+            setIsServerMode(false);
+          }
+        }
+      } catch {
+        // silently ignore
       }
     };
     init();

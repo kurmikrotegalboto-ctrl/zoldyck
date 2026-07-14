@@ -54,6 +54,15 @@ async function verifyTokenAsync(token: string): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Allow static assets through without auth check
+  if (pathname.startsWith("/_next/static") || pathname.startsWith("/_next/image") || pathname === "/favicon.ico") {
+    const response = NextResponse.next();
+    // Static assets SHOULD be cached for performance
+    response.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    setSecurityHeaders(response);
+    return response;
+  }
+
   if (pathname === "/login" || pathname === "/robots.txt" || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
     const response = NextResponse.next();
     setSecurityHeaders(response);
