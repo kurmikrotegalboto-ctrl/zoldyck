@@ -417,6 +417,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       if (r.satuan === "%") return `${r.targetValue.toFixed(2).replace(".",",")} (%)`;
       return String(r.targetValue);
     };
+    const realisasiStr = (r: StrategyRow) => {
+      if (r.satuan === "Rp") return `Rp ${fmtNum(r.realisasiValue)}`;
+      if (r.satuan === "Jumlah") return fmtNum(r.realisasiValue);
+      if (r.satuan === "Gramasi") return `${r.realisasiValue.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `${r.realisasiValue.toFixed(2).replace(".",",")} (%)`;
+      return String(r.realisasiValue);
+    };
     const gapStr = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
       const abs = Math.abs(r.gapInSatuan);
@@ -436,7 +443,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return `${abs.toFixed(2)}/hari`;
     };
 
-    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target Tahunan", "Status", "Gap (Satuan)", "Target / Hari"];
+    const headerRow = ["No", "Komponen", "Satuan", "Bobot", "ACH (%)", "Target Tahunan", "Realisasi", "Status", "Gap (Satuan)", "Target / Hari"];
     const dataRows = rawRows.map((r, i) => [
         i + 1,
         r.name,
@@ -444,6 +451,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         r.bobot,
         r.currentAch,
         targetStr(r),
+        realisasiStr(r),
         statusLabel(r.status),
         gapStr(r),
         dailyStr(r),
@@ -468,6 +476,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       { wch: 7 },   // Bobot
       { wch: 10 },  // ACH
       { wch: 30 },  // Target Tahunan
+      { wch: 30 },  // Realisasi
       { wch: 20 },  // Status
       { wch: 30 },  // Gap
       { wch: 35 },  // Daily
@@ -475,8 +484,8 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
 
     // Merge title
     ws["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -515,6 +524,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       if (r.satuan === "%") return `${r.targetValue.toFixed(2).replace(".",",")} (%)`;
       return r.targetValue.toFixed(2);
     };
+    const fmtReal = (r: StrategyRow) => {
+      if (r.satuan === "Rp") return `Rp ${fmtNum(r.realisasiValue)}`;
+      if (r.satuan === "Jumlah") return fmtNum(r.realisasiValue);
+      if (r.satuan === "Gramasi") return `${r.realisasiValue.toLocaleString("id-ID", {minimumFractionDigits:1, maximumFractionDigits:1})} (gr)`;
+      if (r.satuan === "%") return `${r.realisasiValue.toFixed(2).replace(".",",")} (%)`;
+      return r.realisasiValue.toFixed(2);
+    };
     const fmtGap = (r: StrategyRow) => {
       if (r.status === "achieved") return "-";
       const abs = Math.abs(r.gapInSatuan);
@@ -534,7 +550,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
       return `${abs.toFixed(2)}/hari`;
     };
 
-    // ── Build table body (9 columns, compact) ──
+    // ── Build table body (10 columns, compact) ──
     const tableBody = rawRows.map((r, i) => [
         i + 1,
         r.name,
@@ -542,12 +558,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         r.bobot,
         r.currentAch.toFixed(1) + "%",
         fmtTgt(r),
+        fmtReal(r),
         statusLabel(r.status),
         fmtGap(r),
         fmtDly(r),
     ]);
 
-    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target Tahunan", "Status", "Gap (Satuan)", "Target / Hari"]];
+    const head = [["No", "Komponen", "Sat", "Bbt", "ACH", "Target Tahunan", "Realisasi", "Status", "Gap (Satuan)", "Target / Hari"]];
 
     autoTable(doc, {
       startY: 17,
@@ -576,13 +593,14 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         3:  { halign: "center", cellWidth: 9 },     // Bobot
         4:  { halign: "right",  cellWidth: 15 },    // ACH
         5:  { halign: "right",  cellWidth: 50 },    // Target Tahunan
-        6:  { halign: "center", cellWidth: 16 },    // Status
-        7:  { halign: "right",  cellWidth: 55 },    // Gap
-        8:  { halign: "right",  cellWidth: 55 },    // Daily
+        6:  { halign: "right",  cellWidth: 50 },    // Realisasi
+        7:  { halign: "center", cellWidth: 14 },    // Status
+        8:  { halign: "right",  cellWidth: 48 },    // Gap
+        9:  { halign: "right",  cellWidth: 48 },    // Daily
       },
       didParseCell: (data) => {
         if (data.section !== "body") return;
-        if (data.column.index === 6) {
+        if (data.column.index === 7) {
           const val = String(data.cell.raw);
           if (val === "Capai") data.cell.styles.textColor = [5, 150, 105];
           else if (val === "S.Chase") data.cell.styles.textColor = [217, 119, 6];
@@ -592,7 +610,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
         if (data.column.index === 0) {
           const row = data.table.body[data.row.index];
           if (!row) return;
-          const sv = String(row.cells[6]?.raw || "");
+          const sv = String(row.cells[7]?.raw || "");
           if (sv === "Capai") data.cell.styles.fillColor = [240, 253, 244];
           else if (sv === "S.Chase") data.cell.styles.fillColor = [255, 251, 235];
         }
@@ -784,6 +802,7 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                   </button>
                 </th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-40">Target Tahunan</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-500 w-40">Realisasi</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-36">Gap (Satuan)</th>
                 <th className="text-right px-3 py-2 font-semibold text-gray-500 w-44">Target / Hari</th>
                 <th className="text-center px-2 py-2 font-semibold text-gray-500 w-14">Poin</th>
@@ -859,6 +878,13 @@ function UnitDetailPanel({ analysis, workDays }: { analysis: UnitOverview; workD
                     <td className="px-2 py-2.5 text-right">
                       <span className="font-bold tabular-nums text-[10px] text-gray-700">
                         {fmtTarget(r.targetValue, r.satuan)}
+                      </span>
+                    </td>
+
+                    {/* Realisasi */}
+                    <td className="px-2 py-2.5 text-right">
+                      <span className="font-bold tabular-nums text-[10px] text-emerald-700">
+                        {fmtTarget(r.realisasiValue, r.satuan)}
                       </span>
                     </td>
 
