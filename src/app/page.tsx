@@ -321,6 +321,10 @@ export default function Home() {
       setIsServerMode(true);
       setPendingFiles([]);
 
+      // Upload each snapshot to server and verify success
+      let serverSuccess = true;
+      let serverSnapshots: SnapshotData[] | null = null;
+
       try {
         for (const group of Object.values(dateGroups)) {
           const snapshot: SnapshotData = {
@@ -328,14 +332,38 @@ export default function Home() {
             dateSort: group.dateSort,
             units: group.units,
           };
-          await fetch("/api/snapshots", {
+          const res = await fetch("/api/snapshots", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ snapshot }),
           });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.snapshots) serverSnapshots = data.snapshots;
+          } else {
+            serverSuccess = false;
+            const errData = await res.json().catch(() => ({}));
+            console.error("Upload failed:", res.status, errData);
+          }
         }
-      } catch {
-        // server unreachable — data saved locally only
+      } catch (e) {
+        serverSuccess = false;
+        console.error("Server upload error:", e);
+      }
+
+      if (serverSuccess) {
+        // Use server-confirmed data if available
+        if (serverSnapshots && serverSnapshots.length > 0) {
+          setSnapshots(serverSnapshots);
+          setSelectedSnapshotIndex(serverSnapshots.length - 1);
+        }
+      } else {
+        // Fallback to local mode so data isn't lost
+        setIsServerMode(false);
+        // Still save to localStorage as fallback
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSnapshots));
+        } catch { /* ignore */ }
       }
     } catch {
       setFileStatuses((prev) =>
