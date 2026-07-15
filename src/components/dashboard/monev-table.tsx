@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Table2, ArrowUpDown, ChevronDown, Check, Search, X, Download, Loader2 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Table2, ArrowUpDown, ChevronDown, Check, Search, X, Download, Loader2, CalendarDays } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { ALL_SUB_KOMPONEN, KOMPONEN_GROUPS } from "@/lib/kpi-types";
 import type { SnapshotData, KpiUnit, KpiComponent } from "@/lib/kpi-types";
 
@@ -577,6 +572,84 @@ function SelectedChips({
   );
 }
 
+// ─── Monev Date Picker (Calendar) ────────────────────────────
+
+function MonevDatePicker({
+  snapshots,
+  selectedIndex,
+  onSelect,
+}: {
+  snapshots: SnapshotData[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const availableDates = useMemo(() => snapshots.map((s) => s.dateSort), [snapshots]);
+  const availableSet = useMemo(() => new Set(availableDates), [availableDates]);
+
+  const selectedDateObj = useMemo(() => {
+    const dateSort = snapshots[selectedIndex]?.dateSort;
+    if (!dateSort) return undefined;
+    const parts = dateSort.split("-");
+    if (parts.length !== 3) return undefined;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return isNaN(d.getTime()) ? undefined : d;
+  }, [snapshots, selectedIndex]);
+
+  const selectedLabel = snapshots[selectedIndex]?.date || "Pilih tanggal";
+
+  const handleDayClick = (day: Date) => {
+    const yyyy = day.getFullYear();
+    const mm = String(day.getMonth() + 1).padStart(2, "0");
+    const dd = String(day.getDate()).padStart(2, "0");
+    const dateSort = `${yyyy}-${mm}-${dd}`;
+    const idx = snapshots.findIndex((s) => s.dateSort === dateSort);
+    if (idx !== -1) {
+      onSelect(idx);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full h-9 text-xs text-left px-3 py-2 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors flex items-center gap-2"
+        >
+          <CalendarDays className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+          <span className="truncate">{selectedLabel}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={selectedDateObj}
+          onSelect={(day) => {
+            if (day) handleDayClick(day);
+          }}
+          modifiers={{
+            available: (day) => {
+              const yyyy = day.getFullYear();
+              const mm = String(day.getMonth() + 1).padStart(2, "0");
+              const dd = String(day.getDate()).padStart(2, "0");
+              return availableSet.has(`${yyyy}-${mm}-${dd}`);
+            },
+          }}
+          modifiersClassNames={{
+            available: "bg-emerald-100 text-emerald-800 font-semibold hover:bg-emerald-200",
+          }}
+          className="rounded-md border p-2"
+        />
+        <div className="px-3 pb-2">
+          <p className="text-[10px] text-gray-400">Klik tanggal yang tersedia</p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Main Component ──────────────────────────────────────────
 
 export function MonevTable({ snapshots }: MonevTableProps) {
@@ -750,48 +823,28 @@ export function MonevTable({ snapshots }: MonevTableProps) {
           />
         </div>
 
-        {/* Date A */}
+        {/* Date A - Calendar Picker */}
         <div>
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Periode Awal
           </label>
-          <Select
-            value={String(dateIndexA)}
-            onValueChange={(v) => setDateIndexA(Number(v))}
-          >
-            <SelectTrigger className="w-full h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {dateList.map((d, i) => (
-                <SelectItem key={d.sort} value={String(i)} className="text-xs">
-                  {d.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MonevDatePicker
+            snapshots={snapshots}
+            selectedIndex={dateIndexA}
+            onSelect={(idx) => setDateIndexA(idx)}
+          />
         </div>
 
-        {/* Date B */}
+        {/* Date B - Calendar Picker */}
         <div>
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Periode Akhir
           </label>
-          <Select
-            value={String(dateIndexB)}
-            onValueChange={(v) => setDateIndexB(Number(v))}
-          >
-            <SelectTrigger className="w-full h-9 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {dateList.map((d, i) => (
-                <SelectItem key={d.sort} value={String(i)} className="text-xs">
-                  {d.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MonevDatePicker
+            snapshots={snapshots}
+            selectedIndex={dateIndexB}
+            onSelect={(idx) => setDateIndexB(idx)}
+          />
         </div>
       </div>
 
