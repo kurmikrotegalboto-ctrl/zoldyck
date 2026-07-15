@@ -90,6 +90,9 @@ function buildRowsForSub(
   allCodes.forEach(code => {
     const uA = unitMapA.get(code);
     const uB = unitMapB.get(code);
+    const name = uB?.name || uA?.name || "";
+    // Exclude CP tegalboto from MONEV
+    if (name.toLowerCase().includes("tegalboto")) return;
     const compA = uA?.components.find(c => c.kpi_name === subName);
     const compB = uB?.components.find(c => c.kpi_name === subName);
     if (!compA && !compB) return;

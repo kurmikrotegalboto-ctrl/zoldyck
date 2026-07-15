@@ -119,6 +119,9 @@ function buildRows(
   allCodes.forEach((code) => {
     const uA = unitMapA.get(code);
     const uB = unitMapB.get(code);
+    const name = uB?.name || uA?.name || "";
+    // Exclude CP tegalboto from MONEV
+    if (name.toLowerCase().includes("tegalboto")) return;
     const compA = uA?.components.find((c) => c.kpi_name === subName);
     const compB = uB?.components.find((c) => c.kpi_name === subName);
     if (!compA && !compB) return;
@@ -657,6 +660,7 @@ export function MonevTable({ snapshots }: MonevTableProps) {
   const [dateIndexA, setDateIndexA] = useState<number>(0);
   const [dateIndexB, setDateIndexB] = useState<number>(0);
   const [sortStates, setSortStates] = useState<Record<string, SortState>>({});
+  const defaultSort: SortState = { key: "ach", dir: "desc" };
 
   // Set default dateIndexB to last
   useEffect(() => {
@@ -863,7 +867,7 @@ export function MonevTable({ snapshots }: MonevTableProps) {
               key={subName}
               subName={subName}
               rows={rows}
-              sort={sortStates[subName] || { key: "outlet", dir: "asc" }}
+              sort={sortStates[subName] || defaultSort}
               onSort={(key) => handleSort(subName, key)}
               snapA={snapA!}
               snapB={snapB!}
