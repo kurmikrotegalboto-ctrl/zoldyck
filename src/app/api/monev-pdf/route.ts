@@ -121,6 +121,23 @@ function buildRowsForSub(
   return result;
 }
 
+function sortRowsForPdf(rows: MonevRowData[], sort: { key: string; dir: string } | undefined, defaultSort: { key: string; dir: string }): MonevRowData[] {
+  const s = sort || defaultSort;
+  const sorted = [...rows];
+  sorted.sort((a, b) => {
+    let cmp = 0;
+    switch (s.key) {
+      case "outlet": cmp = a.outletName.localeCompare(b.outletName); break;
+      case "target": cmp = a.targetTahunan - b.targetTahunan; break;
+      case "realB": cmp = a.realisasiB - b.realisasiB; break;
+      case "selisih": cmp = a.selisih - b.selisih; break;
+      case "ach": cmp = a.ach - b.ach; break;
+    }
+    return s.dir === "asc" ? cmp : -cmp;
+  });
+  return sorted;
+}
+
 // ── Main Handler ──
 
 export async function POST(req: NextRequest) {
@@ -131,11 +148,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { snapshots, selectedSubs, dateIndexA, dateIndexB } = body as {
+    const { snapshots, selectedSubs, dateIndexA, dateIndexB, sortStates } = body as {
       snapshots: SnapshotData[];
       selectedSubs: string[];
       dateIndexA: number;
       dateIndexB: number;
+      sortStates?: Record<string, { key: string; dir: string }>;
     };
 
     if (!snapshots || !selectedSubs || selectedSubs.length === 0) {
@@ -559,9 +577,11 @@ export async function POST(req: NextRequest) {
     let y = m + pageHeaderH;
 
     // Build and draw each sub-komponen card
+    const defaultSort = { key: "ach", dir: "desc" };
     for (const subName of selectedSubs) {
-      const rows = buildRowsForSub(subName, snapA, snapB, periodWorkDays, remainingWorkDays);
+      let rows = buildRowsForSub(subName, snapA, snapB, periodWorkDays, remainingWorkDays);
       if (rows.length > 0) {
+        rows = sortRowsForPdf(rows, sortStates?.[subName], defaultSort);
         y = drawCard(subName, rows, y);
       }
     }

@@ -742,6 +742,7 @@ export function MonevTable({ snapshots }: MonevTableProps) {
           selectedSubs: effectiveSelected,
           dateIndexA,
           dateIndexB,
+          sortStates,
         }),
       });
       if (!res.ok) throw new Error("Gagal generate PDF");
