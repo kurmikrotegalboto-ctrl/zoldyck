@@ -77,3 +77,4 @@ server.log
 
 # CLI artifacts
 --timeout
+.vercel
