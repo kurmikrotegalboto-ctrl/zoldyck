@@ -26,7 +26,8 @@ interface MonevRow {
   realisasiB: number;
   selisih: number;
   ach: number;
-  harian: number;
+  pencapaianHarian: number;
+  targetHarian: number;
 }
 
 type SortKey = "outlet" | "target" | "realB" | "selisih" | "ach";
@@ -79,11 +80,39 @@ function achBg(ach: number): string {
   return "bg-red-50";
 }
 
+function calcPeriodWorkDays(dateAStr: string, dateBStr: string): number {
+  const start = new Date(dateAStr);
+  const end = new Date(dateBStr);
+  let count = 0;
+  const d = new Date(start);
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0) count++; // Senin-Sabtu, kecuali Minggu
+    d.setDate(d.getDate() + 1);
+  }
+  return Math.max(count, 1);
+}
+
+function calcRemainingWorkDays(dateBStr: string): number {
+  const start = new Date(dateBStr);
+  const endOfYear = new Date(start.getFullYear(), 11, 31);
+  let count = 0;
+  const d = new Date(start);
+  d.setDate(d.getDate() + 1);
+  while (d <= endOfYear) {
+    const day = d.getDay();
+    if (day !== 0) count++; // Senin-Sabtu, kecuali Minggu
+    d.setDate(d.getDate() + 1);
+  }
+  return Math.max(count, 1);
+}
+
 function buildRows(
   subName: string,
   snapA: SnapshotData,
   snapB: SnapshotData,
-  remainingDays: number
+  periodWorkDays: number,
+  remainingWorkDays: number
 ): MonevRow[] {
   const result: MonevRow[] = [];
   const unitMapA = new Map<string, KpiUnit>();
@@ -105,7 +134,8 @@ function buildRows(
     const selisih = realB - realA;
     const ach = target > 0 ? realB / target : 0;
     const gap = target - realB;
-    const harian = gap > 0 ? gap / remainingDays : 0;
+    const pencapaianHarian = selisih / periodWorkDays;
+    const targetHarian = gap > 0 ? gap / remainingWorkDays : 0;
 
     result.push({
       outletCode: code,
@@ -115,7 +145,8 @@ function buildRows(
       realisasiB: realB,
       selisih,
       ach,
-      harian,
+      pencapaianHarian,
+      targetHarian,
     });
   });
   return result;
@@ -137,7 +168,7 @@ function sortRows(rows: MonevRow[], sort: SortState): MonevRow[] {
   return sorted;
 }
 
-function calcTotals(rows: MonevRow[], remainingDays: number) {
+function calcTotals(rows: MonevRow[], periodWorkDays: number, remainingWorkDays: number) {
   if (rows.length === 0) return null;
   const t = rows.reduce(
     (acc, r) => ({
@@ -151,7 +182,8 @@ function calcTotals(rows: MonevRow[], remainingDays: number) {
   return {
     ...t,
     ach: t.target > 0 ? t.realB / t.target : 0,
-    harian: t.target - t.realB > 0 ? (t.target - t.realB) / remainingDays : 0,
+    pencapaianHarian: t.selisih / periodWorkDays,
+    targetHarian: t.target - t.realB > 0 ? (t.target - t.realB) / remainingWorkDays : 0,
   };
 }
 
@@ -175,7 +207,8 @@ function SubTable({
   onSort,
   snapA,
   snapB,
-  remainingDays,
+  periodWorkDays,
+  remainingWorkDays,
 }: {
   subName: string;
   rows: MonevRow[];
@@ -183,10 +216,11 @@ function SubTable({
   onSort: (key: SortKey) => void;
   snapA: SnapshotData;
   snapB: SnapshotData;
-  remainingDays: number;
+  periodWorkDays: number;
+  remainingWorkDays: number;
 }) {
   const sorted = sortRows(rows, sort);
-  const totals = calcTotals(rows, remainingDays);
+  const totals = calcTotals(rows, periodWorkDays, remainingWorkDays);
   const group = getGroupForSub(subName);
   const info = getSubInfo(subName, [snapA, snapB]);
 
@@ -263,8 +297,11 @@ function SubTable({
                   ACH <SortIcon active={sort.key === "ach"} dir={sort.dir} />
                 </button>
               </th>
-              <th className="text-right px-3 py-2 font-semibold text-gray-600 w-24">
-                Harian
+              <th className="text-right px-3 py-2 font-semibold text-gray-600 w-28">
+                Pencapaian Harian
+              </th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600 w-28">
+                Target Harian
               </th>
             </tr>
           </thead>
@@ -302,7 +339,10 @@ function SubTable({
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-gray-500">
-                  {r.harian > 0 ? formatNum(Math.ceil(r.harian)) : "-"}
+                  {r.pencapaianHarian !== 0 ? formatNum(r.pencapaianHarian) : "-"}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-gray-500">
+                  {r.targetHarian > 0 ? formatNum(r.targetHarian) : "-"}
                 </td>
               </tr>
             ))}
@@ -328,7 +368,10 @@ function SubTable({
                   {formatAch(totals.ach)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-emerald-100">
-                  {totals.harian > 0 ? formatNum(Math.ceil(totals.harian)) : "-"}
+                  {totals.pencapaianHarian !== 0 ? formatNum(totals.pencapaianHarian) : "-"}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-emerald-100">
+                  {totals.targetHarian > 0 ? formatNum(totals.targetHarian) : "-"}
                 </td>
               </tr>
             </tfoot>
@@ -572,20 +615,16 @@ export function MonevTable({ snapshots }: MonevTableProps) {
   const snapA = snapshots[dateIndexA];
   const snapB = snapshots[dateIndexB];
 
-  // Calculate remaining working days in year
-  const remainingDays = useMemo(() => {
+  // Calculate period working days (inclusive, Senin-Sabtu kecuali Minggu)
+  const periodWorkDays = useMemo(() => {
+    if (!snapA || !snapB) return 1;
+    return calcPeriodWorkDays(snapA.dateSort, snapB.dateSort);
+  }, [snapA, snapB]);
+
+  // Calculate remaining working days to end of year
+  const remainingWorkDays = useMemo(() => {
     if (!snapB) return 1;
-    const now = new Date(snapB.dateSort);
-    const endOfYear = new Date(now.getFullYear(), 11, 31);
-    let count = 0;
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    while (d <= endOfYear) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) count++;
-      d.setDate(d.getDate() + 1);
-    }
-    return Math.max(count, 1);
+    return calcRemainingWorkDays(snapB.dateSort);
   }, [snapB]);
 
   // Build rows for each selected sub-komponen
@@ -593,9 +632,9 @@ export function MonevTable({ snapshots }: MonevTableProps) {
     if (!snapA || !snapB || selectedSubs.length === 0) return [];
     return selectedSubs.map((sub) => ({
       subName: sub,
-      rows: buildRows(sub, snapA, snapB, remainingDays),
+      rows: buildRows(sub, snapA, snapB, periodWorkDays, remainingWorkDays),
     }));
-  }, [selectedSubs, snapA, snapB, remainingDays]);
+  }, [selectedSubs, snapA, snapB, periodWorkDays, remainingWorkDays]);
 
   // Sort handler per sub
   const handleSort = (subName: string, key: SortKey) => {
@@ -775,7 +814,8 @@ export function MonevTable({ snapshots }: MonevTableProps) {
               onSort={(key) => handleSort(subName, key)}
               snapA={snapA!}
               snapB={snapB!}
-              remainingDays={remainingDays}
+              periodWorkDays={periodWorkDays}
+              remainingWorkDays={remainingWorkDays}
             />
           ))}
         </div>

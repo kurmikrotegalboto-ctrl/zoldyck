@@ -18,7 +18,8 @@ interface MonevRowData {
   realisasiB: number;
   selisih: number;
   ach: number;
-  harian: number;
+  pencapaianHarian: number;
+  targetHarian: number;
 }
 
 // ── Helpers ──
@@ -45,15 +46,28 @@ function getSubInfo(snapshots: SnapshotData[], subName: string): { bobot: number
   return { bobot: 0, satuan: "" };
 }
 
-function calcRemainingDays(dateSort: string): number {
-  const now = new Date(dateSort);
-  const endOfYear = new Date(now.getFullYear(), 11, 31);
+function calcPeriodWorkDays(dateAStr: string, dateBStr: string): number {
+  const start = new Date(dateAStr);
+  const end = new Date(dateBStr);
   let count = 0;
-  const d = new Date(now);
+  const d = new Date(start);
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0) count++; // Senin-Sabtu, kecuali Minggu
+    d.setDate(d.getDate() + 1);
+  }
+  return Math.max(count, 1);
+}
+
+function calcRemainingWorkDays(dateBStr: string): number {
+  const start = new Date(dateBStr);
+  const endOfYear = new Date(start.getFullYear(), 11, 31);
+  let count = 0;
+  const d = new Date(start);
   d.setDate(d.getDate() + 1);
   while (d <= endOfYear) {
     const day = d.getDay();
-    if (day !== 0 && day !== 6) count++;
+    if (day !== 0) count++; // Senin-Sabtu, kecuali Minggu
     d.setDate(d.getDate() + 1);
   }
   return Math.max(count, 1);
@@ -63,7 +77,8 @@ function buildRowsForSub(
   subName: string,
   snapA: SnapshotData,
   snapB: SnapshotData,
-  remainingDays: number
+  periodWorkDays: number,
+  remainingWorkDays: number
 ): MonevRowData[] {
   const result: MonevRowData[] = [];
   const unitMapA = new Map<string, KpiUnit>();
@@ -85,7 +100,8 @@ function buildRowsForSub(
     const selisih = realB - realA;
     const ach = target > 0 ? realB / target : 0;
     const gap = target - realB;
-    const harian = gap > 0 ? gap / remainingDays : 0;
+    const pencapaianHarian = selisih / periodWorkDays;
+    const targetHarian = gap > 0 ? gap / remainingWorkDays : 0;
 
     result.push({
       outletCode: code,
@@ -95,7 +111,8 @@ function buildRowsForSub(
       realisasiB: realB,
       selisih,
       ach,
-      harian,
+      pencapaianHarian,
+      targetHarian,
     });
   });
   return result;
@@ -128,7 +145,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Periode tidak valid" }, { status: 400 });
     }
 
-    const remainingDays = calcRemainingDays(snapB.dateSort);
+    const remainingWorkDays = calcRemainingWorkDays(snapB.dateSort);
+    const periodWorkDays = calcPeriodWorkDays(snapA.dateSort, snapB.dateSort);
 
     // ── PDF Setup ──
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -156,13 +174,14 @@ export async function POST(req: NextRequest) {
 
     // ── Column widths (total = pw - 2*m = 281) ──
     const cols = {
-      outlet: 60,
-      target: 40,
-      realA: 38,
-      realB: 40,
-      selisih: 35,
-      ach: 30,
-      harian: 38,
+      outlet: 52,
+      target: 36,
+      realA: 34,
+      realB: 36,
+      selisih: 30,
+      ach: 26,
+      pencapaianHarian: 34,
+      targetHarian: 33,
     };
     const totalCW = Object.values(cols).reduce((a, b) => a + b, 0);
 
@@ -341,12 +360,13 @@ export async function POST(req: NextRequest) {
       doc.text(snapB.date, colX.realB + cols.realB - 2, headY, { align: "right" });
       doc.text("SELISIH", colX.selisih + cols.selisih - 2, headY, { align: "right" });
       doc.text("ACH", colX.ach + cols.ach / 2, headY, { align: "center" });
-      doc.text("HARIAN", colX.harian + cols.harian - 2, headY, { align: "right" });
+      doc.text("PENCAPAIAN", colX.pencapaianHarian + cols.pencapaianHarian - 2, headY, { align: "right" });
+      doc.text("TARGET", colX.targetHarian + cols.targetHarian - 2, headY, { align: "right" });
 
       // Vertical dividers
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.1);
-      ["target", "realA", "realB", "selisih", "ach", "harian"].forEach(key => {
+      ["target", "realA", "realB", "selisih", "ach", "pencapaianHarian", "targetHarian"].forEach(key => {
         doc.line(colX[key], y, colX[key], y + tableHeadH);
       });
 
@@ -390,7 +410,8 @@ export async function POST(req: NextRequest) {
           doc.text(snapB.date, colX.realB + cols.realB - 2, rhy, { align: "right" });
           doc.text("SELISIH", colX.selisih + cols.selisih - 2, rhy, { align: "right" });
           doc.text("ACH", colX.ach + cols.ach / 2, rhy, { align: "center" });
-          doc.text("HARIAN", colX.harian + cols.harian - 2, rhy, { align: "right" });
+          doc.text("PENCAPAIAN", colX.pencapaianHarian + cols.pencapaianHarian - 2, rhy, { align: "right" });
+          doc.text("TARGET", colX.targetHarian + cols.targetHarian - 2, rhy, { align: "right" });
           y += tableHeadH;
         }
 
@@ -446,12 +467,22 @@ export async function POST(req: NextRequest) {
         doc.setFont("helvetica", row.ach >= 1.0 ? "bold" : "normal");
         doc.text(achPct, badgeX + badgeW / 2, badgeY + badgeH / 2 + 0.8, { align: "center", baseline: "middle" });
 
-        // Harian
+        // Pencapaian Harian
         sc(GRAY);
         doc.setFont("helvetica", "normal");
         doc.text(
-          row.harian > 0 ? formatNum(Math.ceil(row.harian)) : "-",
-          colX.harian + cols.harian - 2,
+          row.pencapaianHarian !== 0 ? formatNum(row.pencapaianHarian) : "-",
+          colX.pencapaianHarian + cols.pencapaianHarian - 2,
+          textY,
+          { align: "right" }
+        );
+
+        // Target Harian
+        sc(GRAY);
+        doc.setFont("helvetica", "normal");
+        doc.text(
+          row.targetHarian > 0 ? formatNum(row.targetHarian) : "-",
+          colX.targetHarian + cols.targetHarian - 2,
           textY,
           { align: "right" }
         );
@@ -471,7 +502,8 @@ export async function POST(req: NextRequest) {
           { target: 0, realA: 0, realB: 0, selisih: 0 }
         );
         const totalAch = t.target > 0 ? t.realB / t.target : 0;
-        const totalHarian = t.target - t.realB > 0 ? (t.target - t.realB) / remainingDays : 0;
+        const totalPencapaianHarian = t.selisih / periodWorkDays;
+        const totalTargetHarian = t.target - t.realB > 0 ? (t.target - t.realB) / remainingWorkDays : 0;
         const totalTextY = y + totalRowH / 2 + 1.3;
 
         sf(GREEN);
@@ -497,8 +529,16 @@ export async function POST(req: NextRequest) {
 
         sc([200, 240, 215] as RGB);
         doc.text(
-          totalHarian > 0 ? formatNum(Math.ceil(totalHarian)) : "-",
-          colX.harian + cols.harian - 2,
+          totalPencapaianHarian !== 0 ? formatNum(totalPencapaianHarian) : "-",
+          colX.pencapaianHarian + cols.pencapaianHarian - 2,
+          totalTextY,
+          { align: "right" }
+        );
+
+        sc([200, 240, 215] as RGB);
+        doc.text(
+          totalTargetHarian > 0 ? formatNum(totalTargetHarian) : "-",
+          colX.targetHarian + cols.targetHarian - 2,
           totalTextY,
           { align: "right" }
         );
@@ -517,7 +557,7 @@ export async function POST(req: NextRequest) {
 
     // Build and draw each sub-komponen card
     for (const subName of selectedSubs) {
-      const rows = buildRowsForSub(subName, snapA, snapB, remainingDays);
+      const rows = buildRowsForSub(subName, snapA, snapB, periodWorkDays, remainingWorkDays);
       if (rows.length > 0) {
         y = drawCard(subName, rows, y);
       }
