@@ -91,8 +91,8 @@ function buildRowsForSub(
     const uA = unitMapA.get(code);
     const uB = unitMapB.get(code);
     const name = uB?.name || uA?.name || "";
-    // Exclude CP tegalboto from MONEV
-    if (name.toLowerCase().includes("tegalboto")) return;
+    // Exclude CP tegalboto from MONEV (UPC tegalboto tetap ditampilkan)
+    if (/^cp\s+tegalboto/i.test(name)) return;
     const compA = uA?.components.find(c => c.kpi_name === subName);
     const compB = uB?.components.find(c => c.kpi_name === subName);
     if (!compA && !compB) return;
