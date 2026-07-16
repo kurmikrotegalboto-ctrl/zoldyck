@@ -21,6 +21,7 @@ interface MonevRow {
   realisasiB: number;
   selisih: number;
   ach: number;
+  selisihRkap: number;
   pencapaianHarian: number;
   targetHarian: number;
 }
@@ -90,7 +91,7 @@ function calcPeriodWorkDays(dateAStr: string, dateBStr: string): number {
 
 function calcRemainingWorkDays(dateBStr: string): number {
   const start = new Date(dateBStr);
-  const endOfYear = new Date(start.getFullYear(), 11, 31);
+  const endOfYear = new Date(start.getFullYear(), 10, 30); // 30 November
   let count = 0;
   const d = new Date(start);
   d.setDate(d.getDate() + 1);
@@ -131,7 +132,8 @@ function buildRows(
     const realB = compB?.realisasi || 0;
     const selisih = realB - realA;
     const ach = target > 0 ? realB / target : 0;
-    const gap = target - realB;
+    const selisihRkap = target - realB;
+    const gap = selisihRkap;
     const pencapaianHarian = selisih / periodWorkDays;
     const targetHarian = gap > 0 ? gap / remainingWorkDays : 0;
 
@@ -143,6 +145,7 @@ function buildRows(
       realisasiB: realB,
       selisih,
       ach,
+      selisihRkap,
       pencapaianHarian,
       targetHarian,
     });
@@ -180,6 +183,7 @@ function calcTotals(rows: MonevRow[], periodWorkDays: number, remainingWorkDays:
   return {
     ...t,
     ach: t.target > 0 ? t.realB / t.target : 0,
+    selisihRkap: t.target - t.realB,
     pencapaianHarian: t.selisih / periodWorkDays,
     targetHarian: t.target - t.realB > 0 ? (t.target - t.realB) / remainingWorkDays : 0,
   };
@@ -296,10 +300,13 @@ function SubTable({
                 </button>
               </th>
               <th className="text-right px-3 py-2 font-semibold text-gray-600 w-28">
-                Pencapaian Harian
+                Selisih RKAP
               </th>
               <th className="text-right px-3 py-2 font-semibold text-gray-600 w-28">
-                Target Harian
+                Pencapaian Harian
+              </th>
+              <th className="text-right px-3 py-2 font-semibold text-gray-600 w-32">
+                Target Harian ({remainingWorkDays} hr)
               </th>
             </tr>
           </thead>
@@ -336,6 +343,12 @@ function SubTable({
                     {formatAch(r.ach)}
                   </span>
                 </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  <span className={r.selisihRkap >= 0 ? "text-emerald-600" : "text-red-600"}>
+                    {r.selisihRkap >= 0 ? "+" : ""}
+                    {formatNum(r.selisihRkap)}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums text-gray-500">
                   {r.pencapaianHarian !== 0 ? formatNum(r.pencapaianHarian) : "-"}
                 </td>
@@ -364,6 +377,10 @@ function SubTable({
                 </td>
                 <td className="px-3 py-2 text-center tabular-nums">
                   {formatAch(totals.ach)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {totals.selisihRkap >= 0 ? "+" : ""}
+                  {formatNum(totals.selisihRkap)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-emerald-100">
                   {totals.pencapaianHarian !== 0 ? formatNum(totals.pencapaianHarian) : "-"}

@@ -18,6 +18,7 @@ interface MonevRowData {
   realisasiB: number;
   selisih: number;
   ach: number;
+  selisihRkap: number;
   pencapaianHarian: number;
   targetHarian: number;
 }
@@ -61,7 +62,7 @@ function calcPeriodWorkDays(dateAStr: string, dateBStr: string): number {
 
 function calcRemainingWorkDays(dateBStr: string): number {
   const start = new Date(dateBStr);
-  const endOfYear = new Date(start.getFullYear(), 11, 31);
+  const endOfYear = new Date(start.getFullYear(), 10, 30); // 30 November
   let count = 0;
   const d = new Date(start);
   d.setDate(d.getDate() + 1);
@@ -102,7 +103,8 @@ function buildRowsForSub(
     const realB = compB?.realisasi || 0;
     const selisih = realB - realA;
     const ach = target > 0 ? realB / target : 0;
-    const gap = target - realB;
+    const selisihRkap = target - realB;
+    const gap = selisihRkap;
     const pencapaianHarian = selisih / periodWorkDays;
     const targetHarian = gap > 0 ? gap / remainingWorkDays : 0;
 
@@ -114,6 +116,7 @@ function buildRowsForSub(
       realisasiB: realB,
       selisih,
       ach,
+      selisihRkap,
       pencapaianHarian,
       targetHarian,
     });
@@ -195,14 +198,15 @@ export async function POST(req: NextRequest) {
 
     // ── Column widths (total = pw - 2*m = 281) ──
     const cols = {
-      outlet: 52,
-      target: 36,
-      realA: 34,
-      realB: 36,
-      selisih: 30,
-      ach: 26,
-      pencapaianHarian: 34,
-      targetHarian: 33,
+      outlet: 48,
+      target: 32,
+      realA: 30,
+      realB: 32,
+      selisih: 27,
+      ach: 22,
+      selisihRkap: 30,
+      pencapaianHarian: 30,
+      targetHarian: 30,
     };
     const totalCW = Object.values(cols).reduce((a, b) => a + b, 0);
 
@@ -381,13 +385,14 @@ export async function POST(req: NextRequest) {
       doc.text(snapB.date, colX.realB + cols.realB - 2, headY, { align: "right" });
       doc.text("SELISIH", colX.selisih + cols.selisih - 2, headY, { align: "right" });
       doc.text("ACH", colX.ach + cols.ach / 2, headY, { align: "center" });
+      doc.text("SELISIH RKAP", colX.selisihRkap + cols.selisihRkap - 2, headY, { align: "right" });
       doc.text("PENCAPAIAN", colX.pencapaianHarian + cols.pencapaianHarian - 2, headY, { align: "right" });
-      doc.text("TARGET", colX.targetHarian + cols.targetHarian - 2, headY, { align: "right" });
+      doc.text(`TARGET (${remainingWorkDays} hr)`, colX.targetHarian + cols.targetHarian - 2, headY, { align: "right" });
 
       // Vertical dividers
       doc.setDrawColor(220, 220, 220);
       doc.setLineWidth(0.1);
-      ["target", "realA", "realB", "selisih", "ach", "pencapaianHarian", "targetHarian"].forEach(key => {
+      ["target", "realA", "realB", "selisih", "ach", "selisihRkap", "pencapaianHarian", "targetHarian"].forEach(key => {
         doc.line(colX[key], y, colX[key], y + tableHeadH);
       });
 
@@ -431,8 +436,9 @@ export async function POST(req: NextRequest) {
           doc.text(snapB.date, colX.realB + cols.realB - 2, rhy, { align: "right" });
           doc.text("SELISIH", colX.selisih + cols.selisih - 2, rhy, { align: "right" });
           doc.text("ACH", colX.ach + cols.ach / 2, rhy, { align: "center" });
+          doc.text("SELISIH RKAP", colX.selisihRkap + cols.selisihRkap - 2, rhy, { align: "right" });
           doc.text("PENCAPAIAN", colX.pencapaianHarian + cols.pencapaianHarian - 2, rhy, { align: "right" });
-          doc.text("TARGET", colX.targetHarian + cols.targetHarian - 2, rhy, { align: "right" });
+          doc.text(`TARGET (${remainingWorkDays} hr)`, colX.targetHarian + cols.targetHarian - 2, rhy, { align: "right" });
           y += tableHeadH;
         }
 
@@ -488,6 +494,12 @@ export async function POST(req: NextRequest) {
         doc.setFont("helvetica", row.ach >= 1.0 ? "bold" : "normal");
         doc.text(achPct, badgeX + badgeW / 2, badgeY + badgeH / 2 + 0.8, { align: "center", baseline: "middle" });
 
+        // Selisih RKAP
+        const rkapText = (row.selisihRkap >= 0 ? "+" : "") + formatNum(row.selisihRkap);
+        sc(row.selisihRkap >= 0 ? GREEN_L : RED);
+        doc.setFont("helvetica", "normal");
+        doc.text(rkapText, colX.selisihRkap + cols.selisihRkap - 2, textY, { align: "right" });
+
         // Pencapaian Harian
         sc(GRAY);
         doc.setFont("helvetica", "normal");
@@ -523,8 +535,9 @@ export async function POST(req: NextRequest) {
           { target: 0, realA: 0, realB: 0, selisih: 0 }
         );
         const totalAch = t.target > 0 ? t.realB / t.target : 0;
+        const totalSelisihRkap = t.target - t.realB;
         const totalPencapaianHarian = t.selisih / periodWorkDays;
-        const totalTargetHarian = t.target - t.realB > 0 ? (t.target - t.realB) / remainingWorkDays : 0;
+        const totalTargetHarian = totalSelisihRkap > 0 ? totalSelisihRkap / remainingWorkDays : 0;
         const totalTextY = y + totalRowH / 2 + 1.3;
 
         sf(GREEN);
@@ -547,6 +560,10 @@ export async function POST(req: NextRequest) {
         doc.text(totalSelText, colX.selisih + cols.selisih - 2, totalTextY, { align: "right" });
 
         doc.text((totalAch * 100).toFixed(1) + "%", colX.ach + cols.ach / 2, totalTextY, { align: "center" });
+
+        const totalRkapText = (totalSelisihRkap >= 0 ? "+" : "") + formatNum(totalSelisihRkap);
+        sc(WHITE);
+        doc.text(totalRkapText, colX.selisihRkap + cols.selisihRkap - 2, totalTextY, { align: "right" });
 
         sc([200, 240, 215] as RGB);
         doc.text(
