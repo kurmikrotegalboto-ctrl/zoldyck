@@ -24,13 +24,6 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -138,6 +131,7 @@ export default function Home() {
   const [compareMode, setCompareMode] = useState(false);
   const [compareDateSort, setCompareDateSort] = useState<string | null>(null);
   const [showCompareCalendar, setShowCompareCalendar] = useState(false);
+  const [showPeriodCalendar, setShowPeriodCalendar] = useState(false);
 
   // ── UI state ──
   const [showUnitPopover, setShowUnitPopover] = useState(false);
@@ -673,29 +667,37 @@ export default function Home() {
 
             {/* Right: Period, Compare, PDF */}
             <div className="flex items-center gap-1.5 md:gap-2">
-              {/* Period Selector */}
+              {/* Period Selector - Calendar */}
               <div className="flex items-center gap-1">
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-                <Select
-                  value={String(selectedSnapshotIndex)}
-                  onValueChange={handlePeriodChange}
+                <Popover
+                  open={showPeriodCalendar}
+                  onOpenChange={setShowPeriodCalendar}
                 >
-                  <SelectTrigger className="w-[100px] sm:w-[130px] md:w-[160px] h-7 text-[11px] bg-white border-gray-200/70">
-                    <SelectValue placeholder="Pilih Periode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {snapshots.map((s, idx) => (
-                      <SelectItem
-                        key={s.dateSort}
-                        value={String(idx)}
-                        className="text-[11px]"
-                      >
-                        {s.date}
-                        {idx === snapshots.length - 1 && " (Terbaru)"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-700 hover:bg-gray-50 border border-gray-200/70 bg-white transition-colors">
+                      <CalendarDays className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="max-w-[80px] sm:max-w-[110px] md:max-w-[130px] truncate">
+                        {currentSnapshot?.date || "Pilih Periode"}
+                      </span>
+                      <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0"
+                    align="end"
+                    sideOffset={6}
+                  >
+                    <CompareCalendar
+                      availableDates={availableDates}
+                      selectedDate={currentSnapshot?.dateSort}
+                      onSelect={(dateSort) => {
+                        const idx = snapshots.findIndex(s => s.dateSort === dateSort);
+                        if (idx >= 0) setSelectedSnapshotIndex(idx);
+                      }}
+                      onClose={() => setShowPeriodCalendar(false)}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Compare Button */}
