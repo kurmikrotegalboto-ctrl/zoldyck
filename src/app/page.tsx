@@ -323,34 +323,46 @@ export default function Home() {
       setIsServerMode(true);
       setPendingFiles([]);
 
-      // Upload each snapshot to server and verify success
+      // Upload each snapshot to server with retry
       let serverSuccess = true;
       let serverSnapshots: SnapshotData[] | null = null;
+      let lastError = "";
 
-      try {
-        for (const group of Object.values(dateGroups)) {
-          const snapshot: SnapshotData = {
-            date: group.date,
-            dateSort: group.dateSort,
-            units: group.units,
-          };
-          const res = await fetch("/api/snapshots", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ snapshot }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.snapshots) serverSnapshots = data.snapshots;
-          } else {
-            serverSuccess = false;
-            const errData = await res.json().catch(() => ({}));
-            console.error("Upload failed:", res.status, errData);
+      const MAX_RETRIES = 2;
+      for (const group of Object.values(dateGroups)) {
+        const snapshot: SnapshotData = {
+          date: group.date,
+          dateSort: group.dateSort,
+          units: group.units,
+        };
+        let uploaded = false;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            const res = await fetch("/api/snapshots", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ snapshot }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.snapshots) serverSnapshots = data.snapshots;
+              uploaded = true;
+              break;
+            } else {
+              lastError = "";
+              const errData = await res.json().catch(() => ({}));
+              console.error("Upload failed:", res.status, errData);
+              if (errData?.error) lastError = String(errData.error);
+              else if (res.status === 413) lastError = "Data terlalu besar";
+              else lastError = `Server error ${res.status}`;
+            }
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : "Koneksi gagal";
+            console.error("Server upload error:", e);
           }
+          if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500));
         }
-      } catch (e) {
-        serverSuccess = false;
-        console.error("Server upload error:", e);
+        if (!uploaded) serverSuccess = false;
       }
 
       if (serverSuccess) {
@@ -373,7 +385,9 @@ export default function Home() {
         } catch { /* ignore */ }
         toast({
           title: "Gagal menyimpan ke server",
-          description: "Data hanya tersimpan di perangkat ini. Coba upload ulang.",
+          description: lastError
+            ? `${lastError}. Data tersimpan lokal saja.`
+            : "Data hanya tersimpan di perangkat ini. Coba upload ulang.",
           variant: "destructive",
         });
       }

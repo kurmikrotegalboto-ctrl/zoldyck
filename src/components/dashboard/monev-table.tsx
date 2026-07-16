@@ -91,7 +91,7 @@ function calcPeriodWorkDays(dateAStr: string, dateBStr: string): number {
 
 function calcRemainingWorkDays(dateBStr: string): number {
   const start = new Date(dateBStr);
-  const endOfYear = new Date(start.getFullYear(), 10, 30); // 30 November
+  const endOfYear = new Date(2026, 10, 30); // 30 November 2026 (fixed)
   let count = 0;
   const d = new Date(start);
   d.setDate(d.getDate() + 1);

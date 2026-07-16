@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSnapshots, addOrUpdateSnapshot, deleteSnapshot } from "@/lib/server/store";
 import type { SnapshotData, KpiUnit } from "@/lib/kpi-types";
 
-const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB
+export const maxDuration = 30; // extend timeout to 30s (Vercel Hobby default is 10s)
+
+const MAX_BODY_SIZE = 4 * 1024 * 1024; // 4MB (Vercel Hobby body limit is ~4.5MB)
 
 function isValidUnit(u: unknown): u is KpiUnit {
   if (!u || typeof u !== "object") return false;
@@ -73,8 +75,9 @@ export async function POST(request: NextRequest) {
     const snapshots = await addOrUpdateSnapshot(snapshot);
     return NextResponse.json({ success: true, snapshots });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("Save snapshot error:", e);
-    return NextResponse.json({ error: "Gagal menyimpan data" }, { status: 500 });
+    return NextResponse.json({ error: `Gagal menyimpan data: ${msg}` }, { status: 500 });
   }
 }
 
@@ -90,7 +93,8 @@ export async function DELETE(request: NextRequest) {
     const snapshots = await deleteSnapshot(dateSort);
     return NextResponse.json({ success: true, snapshots });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
     console.error("Delete snapshot error:", e);
-    return NextResponse.json({ error: "Gagal menghapus data" }, { status: 500 });
+    return NextResponse.json({ error: `Gagal menghapus data: ${msg}` }, { status: 500 });
   }
 }
