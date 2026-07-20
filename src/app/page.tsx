@@ -317,10 +317,11 @@ export default function Home() {
       setIsServerMode(true);
       setPendingFiles([]);
 
-      // Upload each snapshot to server with retry
+      // Upload each snapshot to server with retry (skip retry for 4xx errors)
       let serverSuccess = true;
       let serverSnapshots: SnapshotData[] | null = null;
       let lastError = "";
+      let shouldRedirectLogin = false;
 
       const MAX_RETRIES = 2;
       for (const group of Object.values(dateGroups)) {
@@ -330,12 +331,14 @@ export default function Home() {
           units: group.units,
         };
         let uploaded = false;
+        let retryable = true;
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
           try {
             const res = await fetch("/api/snapshots", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ snapshot }),
+              signal: AbortSignal.timeout(25000),
             });
             if (res.ok) {
               const data = await res.json();
@@ -343,20 +346,54 @@ export default function Home() {
               uploaded = true;
               break;
             } else {
-              lastError = "";
               const errData = await res.json().catch(() => ({}));
               console.error("Upload failed:", res.status, errData);
-              if (errData?.error) lastError = String(errData.error);
-              else if (res.status === 413) lastError = "Data terlalu besar";
-              else lastError = `Server error ${res.status}`;
+              // 401 = auth expired, redirect to login (no retry)
+              if (res.status === 401) {
+                lastError = "Sesi login expired. Silakan login ulang.";
+                shouldRedirectLogin = true;
+                retryable = false;
+                break;
+              }
+              // 413 = payload too large (no retry)
+              if (res.status === 413) {
+                lastError = "Data terlalu besar untuk di-upload sekaligus. Coba upload file satu per satu.";
+                retryable = false;
+                break;
+              }
+              // 400 = validation error (no retry)
+              if (res.status === 400) {
+                lastError = errData?.error || "Format data tidak valid";
+                retryable = false;
+                break;
+              }
+              // 5xx = server error (retry)
+              lastError = errData?.error || `Server error (${res.status})`;
             }
           } catch (e) {
-            lastError = e instanceof Error ? e.message : "Koneksi gagal";
+            const errMsg = e instanceof Error ? e.message : "Koneksi gagal";
             console.error("Server upload error:", e);
+            // TimeoutError from AbortSignal
+            if (e instanceof DOMException && e.name === "TimeoutError") {
+              lastError = "Server terlalu lama merespon (timeout). Coba lagi.";
+            } else {
+              lastError = `Koneksi gagal: ${errMsg}`;
+            }
           }
+          if (!retryable) break;
           if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1500));
         }
         if (!uploaded) serverSuccess = false;
+      }
+
+      // Redirect to login if auth expired
+      if (shouldRedirectLogin) {
+        toast({
+          title: "Sesi expired",
+          description: "Silakan login ulang.",
+          variant: "destructive",
+        });
+        setTimeout(() => { window.location.href = "/login"; }, 1500);
       }
 
       if (serverSuccess) {
@@ -377,13 +414,15 @@ export default function Home() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSnapshots));
         } catch { /* ignore */ }
-        toast({
-          title: "Gagal menyimpan ke server",
-          description: lastError
-            ? `${lastError}. Data tersimpan lokal saja.`
-            : "Data hanya tersimpan di perangkat ini. Coba upload ulang.",
-          variant: "destructive",
-        });
+        if (!shouldRedirectLogin) {
+          toast({
+            title: "Gagal menyimpan ke server",
+            description: lastError
+              ? `${lastError}. Data tersimpan lokal saja.`
+              : "Data hanya tersimpan di perangkat ini. Coba upload ulang.",
+            variant: "destructive",
+          });
+        }
       }
     } catch {
       setFileStatuses((prev) =>
